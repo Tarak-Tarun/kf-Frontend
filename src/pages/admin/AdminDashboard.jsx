@@ -22,6 +22,10 @@ const [interns, tls, batches, tasks, submissions, evaluations, notifications, pr
           api.get('/profiles', { params: { limit: 500 } }),
         ])
 
+        // Filter only active users
+        const activeInterns = interns.data.filter(intern => intern.is_active !== false)
+        const activeTLs = tls.data.filter(tl => tl.is_active !== false)
+        
         const batchMap = Object.fromEntries(batches.data.map((batch) => [batch.id, batch]))
         const profileMap = Object.fromEntries(profiles.data.map((profile) => [profile.id, profile]))
         const submissionsByDay = submissions.data.reduce((acc, item) => {
@@ -31,8 +35,8 @@ const [interns, tls, batches, tasks, submissions, evaluations, notifications, pr
         }, {})
 
 setSummary({
-          internCount: interns.data.length,
-          tlCount: tls.data.length,
+          internCount: activeInterns.length,
+          tlCount: activeTLs.length,
           batchCount: batches.data.length,
           taskCount: tasks.data.length,
           submissionCount: submissions.data.length,
@@ -41,7 +45,7 @@ setSummary({
           recentSubmissions: Object.entries(submissionsByDay)
             .sort((a, b) => b[0].localeCompare(a[0]))
             .slice(0, 5),
-          internsByBatch: interns.data.reduce((acc, intern) => {
+          internsByBatch: activeInterns.reduce((acc, intern) => {
             const batchName = batchMap[intern.batch_id]?.name || 'Unassigned'
             acc[batchName] = (acc[batchName] || 0) + 1
             return acc
@@ -73,6 +77,30 @@ setSummary({
           Real-time view of the MVP backend across profiles, batches, tasks, attendance-linked submissions,
           evaluations, and notifications.
         </p>
+      </section>
+
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a
+          href="/admin/tls"
+          className="card hover:shadow-lg transition-shadow cursor-pointer bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200"
+        >
+          <div className="text-sm font-semibold text-cyan-900">Technical Leads</div>
+          <div className="text-xs text-cyan-700 mt-1">Manage TL profiles</div>
+        </a>
+        <a
+          href="/admin/interns"
+          className="card hover:shadow-lg transition-shadow cursor-pointer bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200"
+        >
+          <div className="text-sm font-semibold text-blue-900">Interns</div>
+          <div className="text-xs text-blue-700 mt-1">Manage intern profiles</div>
+        </a>
+        <a
+          href="/admin/archive"
+          className="card hover:shadow-lg transition-shadow cursor-pointer bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200"
+        >
+          <div className="text-sm font-semibold text-slate-900">User Archive</div>
+          <div className="text-xs text-slate-700 mt-1">View inactive users</div>
+        </a>
       </section>
 
       <section className="grid grid-cols-2 md:grid-cols-4 gap-4">

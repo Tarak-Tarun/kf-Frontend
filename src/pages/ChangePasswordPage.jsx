@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import api from '../lib/api'
+import { validateEmail, validatePassword } from '../utils/validation'
 
 const ChangePasswordPage = () => {
   const navigate = useNavigate()
@@ -12,55 +13,60 @@ const ChangePasswordPage = () => {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [success, setSuccess] = useState('')
   const [busy, setBusy] = useState(false)
-
-  const validatePassword = (password) => {
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters'
-    }
-    if (!/[A-Z]/.test(password)) {
-      return 'Password must contain an uppercase letter'
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'Password must contain a lowercase letter'
-    }
-    if (!/[0-9]/.test(password)) {
-      return 'Password must contain a digit'
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};:,.<>?]/.test(password)) {
-      return 'Password must contain a special character (!@#$%^&*...)'
-    }
-    return null
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
     setSuccess('')
+    setFieldErrors({})
+    
+    // Validate all fields
+    const errors = {}
 
     // Check all fields are filled
-    if (!email || !oldPassword || !newPassword || !confirmPassword) {
-      setError('All fields are required')
-      return
+    if (!email) {
+      errors.email = 'Email is required'
+    } else {
+      const emailValidation = validateEmail(email)
+      if (!emailValidation.valid) {
+        errors.email = emailValidation.error
+      }
+    }
+    
+    if (!oldPassword) {
+      errors.oldPassword = 'Current password is required'
+    }
+    
+    if (!newPassword) {
+      errors.newPassword = 'New password is required'
+    } else {
+      const passwordValidation = validatePassword(newPassword, 'New password')
+      if (!passwordValidation.valid) {
+        errors.newPassword = passwordValidation.error
+      }
+    }
+    
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please confirm your new password'
     }
 
     // Check passwords match
-    if (newPassword !== confirmPassword) {
-      setError('New password and confirm password do not match')
-      return
-    }
-
-    // Validate password strength
-    const strengthError = validatePassword(newPassword)
-    if (strengthError) {
-      setError(strengthError)
-      return
+    if (newPassword && confirmPassword && newPassword !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match'
     }
 
     // Check old password is different from new
-    if (oldPassword === newPassword) {
-      setError('New password must be different from old password')
+    if (oldPassword && newPassword && oldPassword === newPassword) {
+      errors.newPassword = 'New password must be different from current password'
+    }
+    
+    // If there are validation errors, show them and stop
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setError('⚠️ Please fix the validation errors above')
       return
     }
 

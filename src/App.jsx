@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import SetPasswordPage from './pages/SetPasswordPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
+import ProfileSettings from './pages/ProfileSettings'
 
 import AdminDashboard from './pages/admin/AdminDashboard'
 import Announcements from './pages/admin/Announcements'
@@ -15,6 +16,7 @@ import AttendanceAdmin from './pages/admin/AttendanceAdmin'
 import BatchManagement from './pages/admin/BatchManagement'
 import AdminInternManagement from './pages/admin/InternManagement'
 import TLManagement from './pages/admin/TLManagement'
+import UserArchive from './pages/admin/UserArchive'
 import WeeklyPlans from './pages/admin/WeeklyPlans'
 
 import InternDashboard from './pages/intern/InternDashboard'
@@ -56,9 +58,12 @@ export default function App() {
           <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<HomeRedirect />} />
 
+            <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+
             <Route path="/admin" element={<AR roles={['ADMIN']}><AdminDashboard /></AR>} />
             <Route path="/admin/tls" element={<AR roles={['ADMIN']}><TLManagement /></AR>} />
             <Route path="/admin/interns" element={<AR roles={['ADMIN']}><AdminInternManagement /></AR>} />
+            <Route path="/admin/archive" element={<AR roles={['ADMIN']}><UserArchive /></AR>} />
             <Route path="/batches" element={<AR roles={['ADMIN']}><BatchManagement /></AR>} />
             <Route path="/tasks" element={<AR roles={['ADMIN', 'TECHNICAL_LEAD']}><WeeklyPlans /></AR>} />
             <Route path="/attendance" element={<AR roles={['ADMIN']}><AttendanceAdmin /></AR>} />

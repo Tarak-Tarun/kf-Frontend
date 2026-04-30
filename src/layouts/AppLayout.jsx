@@ -74,12 +74,20 @@ export default function AppLayout() {
             <div className="font-semibold truncate">{user?.name}</div>
             <div className="text-xs text-slate-300 truncate mt-1">{user?.email}</div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2.5 rounded-lg transition"
-          >
-            Sign Out
-          </button>
+          <div className="space-y-2">
+            <Link
+              to="/profile"
+              className="block w-full bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2.5 rounded-lg transition text-center"
+            >
+              Profile Settings
+            </Link>
+            <button
+              onClick={handleLogout}
+              className="w-full bg-white/10 hover:bg-white/20 text-white font-semibold px-4 py-2.5 rounded-lg transition"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </aside>
 

@@ -57,6 +57,20 @@ export default function EvaluationsPage() {
     }
   }
 
+  async function deleteEvaluation(evaluationId, internName, weekNumber) {
+    if (!window.confirm(`Delete evaluation for ${internName} (Week ${weekNumber})?\n\nThis action cannot be undone.`)) {
+      return
+    }
+    
+    try {
+      await api.delete(`/evaluations/${evaluationId}`)
+      setError('')
+      load()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to delete evaluation.')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -66,15 +80,77 @@ export default function EvaluationsPage() {
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
 
-      <form onSubmit={createEvaluation} className="card grid md:grid-cols-4 gap-4">
-        <select className="input" value={form.intern_id} onChange={(e) => setForm({ ...form, intern_id: e.target.value })} required>
-          <option value="">Select intern</option>
-          {interns.map((intern) => <option key={intern.id} value={intern.id}>{intern.name}</option>)}
-        </select>
-        <input className="input" type="number" min="1" value={form.week_number} onChange={(e) => setForm({ ...form, week_number: e.target.value })} required />
-        <input className="input" type="number" min="0" max="5" step="0.1" value={form.score} onChange={(e) => setForm({ ...form, score: e.target.value })} required />
-        <input className="input md:col-span-4" placeholder="Feedback" value={form.feedback} onChange={(e) => setForm({ ...form, feedback: e.target.value })} />
-        <button className="btn-primary md:col-span-4" type="submit">Save Evaluation</button>
+      <form onSubmit={createEvaluation} className="card space-y-4">
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Select Intern *
+            </label>
+            <select 
+              className="input" 
+              value={form.intern_id} 
+              onChange={(e) => setForm({ ...form, intern_id: e.target.value })} 
+              required
+            >
+              <option value="">Choose an intern...</option>
+              {interns.map((intern) => (
+                <option key={intern.id} value={intern.id}>{intern.name}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Week Number *
+            </label>
+            <input 
+              className="input" 
+              type="number" 
+              min="1" 
+              max="52"
+              placeholder="e.g., 1, 2, 3..."
+              value={form.week_number} 
+              onChange={(e) => setForm({ ...form, week_number: e.target.value })} 
+              required 
+            />
+            <p className="text-xs text-slate-500 mt-1">Enter week 1-52</p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Score (0-5) *
+            </label>
+            <input 
+              className="input" 
+              type="number" 
+              min="0" 
+              max="5" 
+              step="0.1" 
+              placeholder="e.g., 4.5"
+              value={form.score} 
+              onChange={(e) => setForm({ ...form, score: e.target.value })} 
+              required 
+            />
+            <p className="text-xs text-slate-500 mt-1">0.0 to 5.0 scale</p>
+          </div>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            Feedback (Optional)
+          </label>
+          <textarea 
+            className="input min-h-[80px] resize-y" 
+            placeholder="Write your feedback for the intern's performance this week..."
+            value={form.feedback} 
+            onChange={(e) => setForm({ ...form, feedback: e.target.value })}
+            rows={3}
+          />
+        </div>
+        
+        <button className="btn-primary w-full" type="submit">
+          Save Evaluation
+        </button>
       </form>
 
       <div className="card overflow-x-auto">
@@ -85,6 +161,7 @@ export default function EvaluationsPage() {
               <th className="th">Week</th>
               <th className="th">Score</th>
               <th className="th">Feedback</th>
+              {user?.role === 'ADMIN' && <th className="th">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -94,10 +171,20 @@ export default function EvaluationsPage() {
                 <td className="td">{item.week_number}</td>
                 <td className="td font-semibold">{item.score}</td>
                 <td className="td">{item.feedback || '—'}</td>
+                {user?.role === 'ADMIN' && (
+                  <td className="td">
+                    <button
+                      onClick={() => deleteEvaluation(item.id, internMap[item.intern_id]?.name || 'Unknown', item.week_number)}
+                      className="px-3 py-1.5 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition-all duration-200"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
             {evaluations.length === 0 && (
-              <tr><td className="td text-slate-500" colSpan={4}>No evaluations found.</td></tr>
+              <tr><td className="td text-slate-500" colSpan={user?.role === 'ADMIN' ? 5 : 4}>No evaluations found.</td></tr>
             )}
           </tbody>
         </table>

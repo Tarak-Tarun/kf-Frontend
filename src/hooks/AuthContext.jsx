@@ -38,7 +38,16 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const { data } = await api.post('/auth/login', { email, password })
     localStorage.setItem('kf_token', data.access_token)
-    return hydrateCurrentUser()
+    
+    // Store user from login response
+    setUser(data.user)
+    localStorage.setItem('kf_user', JSON.stringify(data.user))
+    
+    // Return the user data with must_change_password flag
+    return {
+      ...data.user,
+      must_change_password: data.must_change_password
+    }
   }
 
   function logout() {

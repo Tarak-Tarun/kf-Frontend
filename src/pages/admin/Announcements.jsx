@@ -91,21 +91,51 @@ export default function Announcements() {
       <div className="space-y-3">
         {notifications.length === 0 && <div className="card text-slate-500">No notifications found.</div>}
         {notifications.map((item) => (
-          <div key={item.id} className="card">
+          <div key={item.id} className={`card ${item.is_read ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-500'}`}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <div className="font-semibold text-slate-900">{item.title}</div>
+                <div className="flex items-center gap-2">
+                  <div className="font-semibold text-slate-900">{item.title}</div>
+                  {!item.is_read && (
+                    <span className="px-2 py-0.5 text-xs font-semibold bg-blue-500 text-white rounded-full">New</span>
+                  )}
+                </div>
                 <div className="text-sm text-slate-700 mt-2">{item.message}</div>
                 <div className="text-xs text-slate-400 mt-3">
                   Recipient: {profileMap[item.user_id]?.name || item.user_id} · {new Date(item.created_at).toLocaleString()}
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <button className="text-sm text-brand-700 font-semibold" onClick={() => markRead(item.id, !item.is_read)}>
-                  {item.is_read ? 'Mark Unread' : 'Mark Read'}
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <button 
+                  className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors flex items-center gap-2 justify-center min-w-[140px]"
+                  onClick={() => markRead(item.id, !item.is_read)}
+                >
+                  {item.is_read ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Mark as Unread
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Mark as Read
+                    </>
+                  )}
                 </button>
                 {canManage && (
-                  <button className="text-sm text-rose-700 font-semibold" onClick={() => deleteNotification(item.id)}>Delete</button>
+                  <button 
+                    className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors flex items-center gap-2 justify-center min-w-[120px]"
+                    onClick={() => deleteNotification(item.id)}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete
+                  </button>
                 )}
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import api from '../../lib/api'
+import { validateEmail, validateName, validateTechStack, validateUUID } from '../../utils/validation'
 
 const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_id: '' }
 
@@ -11,6 +12,7 @@ export default function InternManagement() {
   const [editingId, setEditingId] = useState(null)
   const [editingForm, setEditingForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
 
   async function load() {
     try {
@@ -30,13 +32,49 @@ export default function InternManagement() {
 
   async function createProfile(event) {
     event.preventDefault()
+    setError('')
+    setFieldErrors({})
+    
+    // Validate all fields
+    const errors = {}
+    
+    const nameValidation = validateName(form.name)
+    if (!nameValidation.valid) {
+      errors.name = nameValidation.error
+    }
+    
+    const emailValidation = validateEmail(form.email)
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.error
+    }
+    
+    const techStackValidation = validateTechStack(form.tech_stack)
+    if (!techStackValidation.valid) {
+      errors.tech_stack = techStackValidation.error
+    }
+    
+    const batchIdValidation = validateUUID(form.batch_id, 'Batch')
+    if (!batchIdValidation.valid) {
+      errors.batch_id = batchIdValidation.error
+    }
+    
+    // If there are validation errors, show them and stop
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setError('⚠️ Please fix the validation errors above')
+      return
+    }
+    
     try {
       await api.post('/profiles', {
-        ...form,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
+        tech_stack: form.tech_stack.trim() || null,
         role: 'INTERN',
         batch_id: form.batch_id || null,
       })
       setForm(EMPTY_FORM)
+      setFieldErrors({})
       load()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create intern profile.')
@@ -44,13 +82,49 @@ export default function InternManagement() {
   }
 
   async function saveProfile(id) {
+    setError('')
+    setFieldErrors({})
+    
+    // Validate all fields
+    const errors = {}
+    
+    const nameValidation = validateName(editingForm.name)
+    if (!nameValidation.valid) {
+      errors.name = nameValidation.error
+    }
+    
+    const emailValidation = validateEmail(editingForm.email)
+    if (!emailValidation.valid) {
+      errors.email = emailValidation.error
+    }
+    
+    const techStackValidation = validateTechStack(editingForm.tech_stack)
+    if (!techStackValidation.valid) {
+      errors.tech_stack = techStackValidation.error
+    }
+    
+    const batchIdValidation = validateUUID(editingForm.batch_id, 'Batch')
+    if (!batchIdValidation.valid) {
+      errors.batch_id = batchIdValidation.error
+    }
+    
+    // If there are validation errors, show them and stop
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
+      setError('⚠️ Please fix the validation errors above')
+      return
+    }
+    
     try {
       await api.put(`/profiles/${id}`, {
-        ...editingForm,
+        name: editingForm.name.trim(),
+        email: editingForm.email.trim().toLowerCase(),
+        tech_stack: editingForm.tech_stack?.trim() || null,
         batch_id: editingForm.batch_id || null,
       })
       setEditingId(null)
       setEditingForm(EMPTY_FORM)
+      setFieldErrors({})
       load()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to update intern profile.')
