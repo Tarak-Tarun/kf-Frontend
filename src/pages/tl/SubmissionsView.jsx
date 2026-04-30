@@ -1,0 +1,124 @@
+import { useEffect, useMemo, useState } from 'react'
+
+import { useAuth } from '../../hooks/AuthContext'
+import api from '../../lib/api'
+
+export default function SubmissionsView() {
+  const { user } = useAuth()
+  const [interns, setInterns] = useState([])
+  const [submissions, setSubmissions] = useState([])
+  const [filters, setFilters] = useState({ user_id: '', submitted_for: '' })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(true)
+
+  const internMap = useMemo(() => Object.fromEntries(interns.map((intern) => [intern.id, intern])), [interns])
+
+  // Load interns once on mount
+  useEffect(() => {
+    async function loadInterns() {
+      try {
+        const [profiles, batches] = await Promise.all([
+          api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
+          user.role === 'TECHNICAL_LEAD'
+            ? api.get('/batches', { params: { team_lead_id: user.id, limit: 500 } })
+            : Promise.resolve({ data: [] }),
+        ])
+        if (user.role === 'TECHNICAL_LEAD') {
+          const allowedBatchIds = new Set(batches.data.map((batch) => batch.id))
+          setInterns(profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id)))
+        } else {
+          setInterns(profiles.data)
+        }
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Failed to load intern profiles.')
+      }
+    }
+    loadInterns()
+  }, [user])
+
+  // Load submissions after interns are loaded
+  useEffect(() => {
+    async function loadSubmissions() {
+      if (interns.length === 0) return  // Wait for interns to load first
+      
+      setLoading(true)
+      try {
+        const params = { limit: 500 }
+        if (filters.user_id) params.user_id = filters.user_id
+        if (filters.submitted_for) params.submitted_for = filters.submitted_for
+        const { data } = await api.get('/submissions', { params })
+        
+        // Filter to allowed interns only
+        const allowedIds = new Set(interns.map((intern) => intern.id))
+        const filtered = data.filter((item) => allowedIds.size === 0 || allowedIds.has(item.user_id))
+        setSubmissions(filtered)
+        setError('')
+      } catch (err) {
+        setError(err.response?.data?.detail || 'Failed to load submissions.')
+        setSubmissions([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    loadSubmissions()
+  }, [filters.user_id, filters.submitted_for, interns.length])
+
+  const handleUserFilter = (e) => {
+    setFilters({ ...filters, user_id: e.target.value })
+  }
+
+  const handleDateFilter = (e) => {
+    setFilters({ ...filters, submitted_for: e.target.value })
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-black text-slate-900">Submissions</h1>
+        <p className="text-sm text-slate-500 mt-2">Review daily updates submitted by interns.</p>
+      </div>
+
+      {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
+
+      <div className="card grid md:grid-cols-2 gap-4">
+        <select 
+          className="input" 
+          value={filters.user_id} 
+          onChange={handleUserFilter}
+        >
+          <option value="">All interns</option>
+          {interns.map((intern) => (
+            <option key={intern.id} value={intern.id}>{intern.name}</option>
+          ))}
+        </select>
+        <input 
+          className="input" 
+          type="date" 
+          value={filters.submitted_for} 
+          onChange={handleDateFilter} 
+        />
+      </div>
+
+      <div className="space-y-3">
+        {loading ? (
+          <div className="card text-slate-500">Loading submissions...</div>
+        ) : submissions.length === 0 ? (
+          <div className="card text-slate-500">No submissions found.</div>
+        ) : (
+          submissions.map((item) => (
+            <div key={item.id} className="card">
+              <div className="flex items-center justify-between">
+                <div className="font-semibold text-slate-900">
+                  {/* Use submitted_by_name from API, fallback to internMap lookup */}
+                  {item.submitted_by_name || internMap[item.user_id]?.name || item.user_id}
+                </div>
+                <div className="text-xs text-slate-400">{item.submitted_for}</div>
+              </div>
+              <div className="text-sm text-slate-700 mt-3 whitespace-pre-wrap">{item.content}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
