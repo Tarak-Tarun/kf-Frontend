@@ -110,7 +110,11 @@ export default function InternManagement() {
                     <input className="input" value={editingForm.name} onChange={(e) => setEditingForm({ ...editingForm, name: e.target.value })} />
                   ) : item.name}
                 </td>
-                <td className="td">{item.email}</td>
+                <td className="td">
+                  {editingId === item.id ? (
+                    <input className="input" type="email" value={editingForm.email} onChange={(e) => setEditingForm({ ...editingForm, email: e.target.value })} />
+                  ) : item.email}
+                </td>
                 <td className="td">
                   {editingId === item.id ? (
                     <input className="input" value={editingForm.tech_stack || ''} onChange={(e) => setEditingForm({ ...editingForm, tech_stack: e.target.value })} />
@@ -136,6 +140,7 @@ export default function InternManagement() {
                         setEditingId(item.id)
                         setEditingForm({
                           name: item.name,
+                          email: item.email,
                           tech_stack: item.tech_stack || '',
                           batch_id: item.batch_id || '',
                         })

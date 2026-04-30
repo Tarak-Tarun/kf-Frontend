@@ -111,7 +111,11 @@ export default function TLManagement() {
                     <input className="input" value={editingForm.name} onChange={(e) => setEditingForm({ ...editingForm, name: e.target.value })} />
                   ) : item.name}
                 </td>
-                <td className="td">{item.email}</td>
+                <td className="td">
+                  {editingId === item.id ? (
+                    <input className="input" type="email" value={editingForm.email} onChange={(e) => setEditingForm({ ...editingForm, email: e.target.value })} />
+                  ) : item.email}
+                </td>
                 <td className="td">
                   {editingId === item.id ? (
                     <input className="input" value={editingForm.tech_stack || ''} onChange={(e) => setEditingForm({ ...editingForm, tech_stack: e.target.value })} />
@@ -127,7 +131,7 @@ export default function TLManagement() {
                     <>
                       <button className="text-sm text-brand-700 font-semibold" onClick={() => {
                         setEditingId(item.id)
-                        setEditingForm({ name: item.name, tech_stack: item.tech_stack || '', batch_id: item.batch_id || null })
+                        setEditingForm({ name: item.name, email: item.email, tech_stack: item.tech_stack || '', batch_id: item.batch_id || null })
                       }}>Edit</button>
                       <button className="text-sm text-rose-700 font-semibold" onClick={() => deleteProfile(item.id)}>Delete</button>
                     </>
