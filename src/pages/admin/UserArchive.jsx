@@ -16,13 +16,11 @@ export default function UserArchive() {
     try {
       setLoading(true)
       const [profilesRes, batchesRes] = await Promise.all([
-        api.get('/profiles', { params: { limit: 500 } }),
+        api.get('/profiles', { params: { is_active: false, limit: 500 } }),
         api.get('/batches'),
       ])
       
-      // Filter only inactive profiles
-      const inactiveProfiles = (profilesRes.data || []).filter(p => !p.is_active)
-      setProfiles(inactiveProfiles)
+      setProfiles(profilesRes.data || [])
       setBatches(batchesRes.data || [])
       setError('')
     } catch (e) {

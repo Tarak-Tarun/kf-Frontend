@@ -20,7 +20,7 @@ export default function InternArchive() {
     try {
       setLoading(true)
       const [u, b] = await Promise.all([
-        api.get('/users', { params: { role: 'INTERN', status: 'DEACTIVATED' } }),
+        api.get('/profiles', { params: { role: 'INTERN', is_active: false } }),
         api.get('/batches'),
       ])
       setInterns(u.data || [])
