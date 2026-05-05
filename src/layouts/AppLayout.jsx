@@ -22,6 +22,7 @@ const NAV = {
     { to: '/tasks', label: 'Tasks' },
     { to: '/submissions', label: 'Submissions' },
     { to: '/evaluations', label: 'Evaluations' },
+    { to: '/attendance', label: 'Attendance' },
     { to: '/notifications', label: 'Notifications' },
   ],
   INTERN: [
