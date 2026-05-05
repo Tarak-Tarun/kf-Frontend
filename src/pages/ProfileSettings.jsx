@@ -50,7 +50,11 @@ export default function ProfileSettings() {
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
       console.error('Failed to update profile:', err)
-      setError(err.response?.data?.detail || 'Failed to update profile')
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only edit your own profile.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to update profile')
+      }
     } finally {
       setLoading(false)
     }

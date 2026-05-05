@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 
+import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
 const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_id: '' }
 
 export default function InternManagement() {
+  const { user } = useAuth()
   const [interns, setInterns] = useState([])
   const [batches, setBatches] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
@@ -101,9 +103,14 @@ export default function InternManagement() {
       })
       setEditingId(null)
       setEditingForm(EMPTY_FORM)
+      setError('')
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update intern profile.')
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only edit interns in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to update intern profile.')
+      }
     }
   }
 
@@ -111,14 +118,35 @@ export default function InternManagement() {
     if (!window.confirm('Delete this intern profile?')) return
     try {
       await api.delete(`/profiles/${id}`)
+      setError('')
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete intern profile.')
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only delete interns in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to delete intern profile.')
+      }
     }
   }
 
   function batchName(batchId) {
     return batches.find((batch) => batch.id === batchId)?.name || 'Unassigned'
+  }
+
+  // Role-based access control
+  function canEditIntern(intern) {
+    if (!user) return false
+    
+    // ADMIN can edit all interns
+    if (user.role === 'ADMIN') return true
+    
+    // TECHNICAL_LEAD can edit only interns in their batches
+    if (user.role === 'TECHNICAL_LEAD' && intern.batch_id === user.batch_id) return true
+    
+    // INTERN can edit only their own profile (but this page is not for interns)
+    if (user.role === 'INTERN' && intern.id === user.id) return true
+    
+    return false
   }
 
   function clearFilters() {
@@ -254,94 +282,104 @@ export default function InternManagement() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {interns.map((item) => (
-                <tr key={item.id}>
-                  <td className="td">
-                    {editingId === item.id ? (
-                      <input 
-                        className="input" 
-                        value={editingForm.name} 
-                        onChange={(e) => setEditingForm({ ...editingForm, name: e.target.value })} 
-                      />
-                    ) : item.name}
-                  </td>
-                  <td className="td">
-                    {editingId === item.id ? (
-                      <input 
-                        className="input" 
-                        type="email" 
-                        value={editingForm.email} 
-                        onChange={(e) => setEditingForm({ ...editingForm, email: e.target.value })} 
-                      />
-                    ) : item.email}
-                  </td>
-                  <td className="td">
-                    {editingId === item.id ? (
-                      <input 
-                        className="input" 
-                        value={editingForm.tech_stack || ''} 
-                        onChange={(e) => setEditingForm({ ...editingForm, tech_stack: e.target.value })} 
-                      />
-                    ) : (item.tech_stack || '—')}
-                  </td>
-                  <td className="td">
-                    {editingId === item.id ? (
-                      <select 
-                        className="input" 
-                        value={editingForm.batch_id || ''} 
-                        onChange={(e) => setEditingForm({ ...editingForm, batch_id: e.target.value })}
-                      >
-                        <option value="">No batch</option>
-                        {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
-                      </select>
-                    ) : batchName(item.batch_id)}
-                  </td>
-                  <td className="td space-x-3">
-                    {editingId === item.id ? (
-                      <>
-                        <button 
-                          className="text-sm text-brand-700 font-semibold" 
-                          onClick={() => saveProfile(item.id)}
+              {interns.map((item) => {
+                const canEdit = canEditIntern(item)
+                
+                return (
+                  <tr key={item.id}>
+                    <td className="td">
+                      {editingId === item.id ? (
+                        <input 
+                          className="input" 
+                          value={editingForm.name} 
+                          onChange={(e) => setEditingForm({ ...editingForm, name: e.target.value })} 
+                        />
+                      ) : item.name}
+                    </td>
+                    <td className="td">
+                      {editingId === item.id ? (
+                        <input 
+                          className="input" 
+                          type="email" 
+                          value={editingForm.email} 
+                          onChange={(e) => setEditingForm({ ...editingForm, email: e.target.value })} 
+                        />
+                      ) : item.email}
+                    </td>
+                    <td className="td">
+                      {editingId === item.id ? (
+                        <input 
+                          className="input" 
+                          value={editingForm.tech_stack || ''} 
+                          onChange={(e) => setEditingForm({ ...editingForm, tech_stack: e.target.value })} 
+                        />
+                      ) : (item.tech_stack || '—')}
+                    </td>
+                    <td className="td">
+                      {editingId === item.id ? (
+                        <select 
+                          className="input" 
+                          value={editingForm.batch_id || ''} 
+                          onChange={(e) => setEditingForm({ ...editingForm, batch_id: e.target.value })}
                         >
-                          Save
-                        </button>
-                        <button 
-                          className="text-sm text-slate-500" 
-                          onClick={() => {
-                            setEditingId(null)
-                            setEditingForm(EMPTY_FORM)
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button 
-                          className="text-sm text-brand-700 font-semibold" 
-                          onClick={() => {
-                            setEditingId(item.id)
-                            setEditingForm({
-                              name: item.name,
-                              email: item.email,
-                              tech_stack: item.tech_stack || '',
-                              batch_id: item.batch_id || '',
-                            })
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button 
-                          className="text-sm text-rose-700 font-semibold" 
-                          onClick={() => deleteProfile(item.id)}
-                        >
-                          Delete
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                          <option value="">No batch</option>
+                          {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+                        </select>
+                      ) : batchName(item.batch_id)}
+                    </td>
+                    <td className="td space-x-3">
+                      {editingId === item.id ? (
+                        <>
+                          <button 
+                            className="text-sm text-brand-700 font-semibold" 
+                            onClick={() => saveProfile(item.id)}
+                          >
+                            Save
+                          </button>
+                          <button 
+                            className="text-sm text-slate-500" 
+                            onClick={() => {
+                              setEditingId(null)
+                              setEditingForm(EMPTY_FORM)
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {canEdit ? (
+                            <>
+                              <button 
+                                className="text-sm text-brand-700 font-semibold" 
+                                onClick={() => {
+                                  setEditingId(item.id)
+                                  setEditingForm({
+                                    name: item.name,
+                                    email: item.email,
+                                    tech_stack: item.tech_stack || '',
+                                    batch_id: item.batch_id || '',
+                                  })
+                                }}
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                className="text-sm text-rose-700 font-semibold" 
+                                onClick={() => deleteProfile(item.id)}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-sm text-slate-400 italic">No access</span>
+                          )}
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
               {interns.length === 0 && (
                 <tr>
                   <td className="td text-slate-500 text-center" colSpan={5}>
