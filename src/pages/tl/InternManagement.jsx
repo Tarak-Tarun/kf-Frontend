@@ -30,21 +30,30 @@ export default function InternManagement() {
         limit: 500,
       }
 
-      if (searchQuery) params.search = searchQuery
+      if (searchQuery) params.search_name = searchQuery
       if (batchFilter) params.batch_id = batchFilter
       if (sortBy) params.sort_by = sortBy
-      if (sortOrder) params.order = sortOrder
+      if (sortOrder) params.sort_order = sortOrder
 
       const [batchList, profiles] = await Promise.all([
         api.get('/batches', { params: { limit: 500 } }),
         api.get('/profiles', { params }),
       ])
       
+      console.log('Batches fetched:', batchList.data)
+      console.log('Profiles fetched:', profiles.data)
+      console.log('Current user:', user)
+      
       setBatches(batchList.data || [])
       
       // Filter to only show interns in Tech Lead's batches
       const allowedBatchIds = new Set(batchList.data.map((batch) => batch.id))
-      setInterns(profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id)))
+      const filteredInterns = profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id))
+      
+      console.log('Allowed batch IDs:', Array.from(allowedBatchIds))
+      console.log('Filtered interns:', filteredInterns)
+      
+      setInterns(filteredInterns)
       setError('')
     } catch (err) {
       console.error('Failed to load interns:', err)
@@ -97,14 +106,34 @@ export default function InternManagement() {
 
   // Role-based access control
   function canEditIntern(intern) {
-    if (!user) return false
+    if (!user) {
+      console.log('No user found')
+      return false
+    }
     
     // ADMIN can edit all interns
-    if (user.role === 'ADMIN') return true
+    if (user.role === 'ADMIN') {
+      console.log('User is ADMIN - can edit all')
+      return true
+    }
     
-    // TECHNICAL_LEAD can edit only interns in their batches
-    if (user.role === 'TECHNICAL_LEAD' && intern.batch_id === user.batch_id) return true
+    // TECHNICAL_LEAD can edit only interns in their assigned batches
+    if (user.role === 'TECHNICAL_LEAD') {
+      // Check if intern's batch is in the Tech Lead's assigned batches
+      const allowedBatchIds = new Set(batches.map((batch) => batch.id))
+      const hasAccess = allowedBatchIds.has(intern.batch_id)
+      
+      console.log('Tech Lead Access Check:', {
+        internName: intern.name,
+        internBatchId: intern.batch_id,
+        allowedBatchIds: Array.from(allowedBatchIds),
+        hasAccess
+      })
+      
+      return hasAccess
+    }
     
+    console.log('No role match - no access')
     return false
   }
 
@@ -224,6 +253,14 @@ export default function InternManagement() {
               {interns.map((item) => {
                 const canEdit = canEditIntern(item)
                 
+                // Temporary debug info
+                const debugInfo = {
+                  userRole: user?.role,
+                  batchesCount: batches.length,
+                  internBatchId: item.batch_id,
+                  canEdit
+                }
+                
                 return (
                   <tr key={item.id}>
                     <td className="td">
@@ -315,7 +352,9 @@ export default function InternManagement() {
                               </button>
                             </>
                           ) : (
-                            <span className="text-sm text-slate-400 italic">No access</span>
+                            <span className="text-sm text-slate-400 italic" title={JSON.stringify(debugInfo)}>
+                              No access (hover for debug)
+                            </span>
                           )}
                         </>
                       )}
