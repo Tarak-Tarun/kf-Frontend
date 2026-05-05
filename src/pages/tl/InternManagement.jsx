@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
-const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_id: '' }
+const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_name: '' }
 
 export default function InternManagement() {
   const { user } = useAuth()
@@ -14,6 +14,13 @@ export default function InternManagement() {
   const [editingId, setEditingId] = useState(null)
   const [editingForm, setEditingForm] = useState(EMPTY_FORM)
   const [loading, setLoading] = useState(false)
+  
+  // Create form
+  const [createForm, setCreateForm] = useState(EMPTY_FORM)
+  
+  // CSV upload
+  const [csvFile, setCsvFile] = useState(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
@@ -76,7 +83,7 @@ export default function InternManagement() {
         name: editingForm.name,
         email: editingForm.email,
         tech_stack: editingForm.tech_stack || null,
-        batch_id: editingForm.batch_id || null,
+        batch_name: editingForm.batch_name || null,
       }
       
       console.log('Saving profile:', id, payload)
@@ -139,6 +146,102 @@ export default function InternManagement() {
     }
   }
 
+  async function createIntern(event) {
+    event.preventDefault()
+    
+    try {
+      const payload = {
+        name: createForm.name,
+        email: createForm.email,
+        role: 'INTERN',
+        tech_stack: createForm.tech_stack || null,
+        batch_name: createForm.batch_name || null,
+      }
+      
+      console.log('Creating intern:', payload)
+      
+      await api.post('/profiles', payload)
+      
+      setCreateForm(EMPTY_FORM)
+      setError('')
+      setSuccess('Intern created successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      
+      // Refresh data
+      await load()
+      
+      console.log('Intern created successfully')
+    } catch (err) {
+      console.error('Failed to create intern:', err)
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only create interns in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to create intern profile.')
+      }
+    }
+  }
+
+  async function handleCsvUpload() {
+    if (!csvFile) {
+      setError('Please select a CSV file to upload.')
+      return
+    }
+    
+    setUploadLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', csvFile)
+      
+      console.log('Uploading CSV file:', csvFile.name)
+      
+      const response = await api.post('/profiles/upload-csv', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      const { created, skipped, errors } = response.data
+      
+      setCsvFile(null)
+      setError('')
+      
+      let message = `CSV Upload Complete: ${created} created`
+      if (skipped > 0) message += `, ${skipped} skipped`
+      if (errors && errors.length > 0) {
+        message += `\nErrors: ${errors.join(', ')}`
+      }
+      
+      setSuccess(message)
+      setTimeout(() => setSuccess(''), 5000)
+      
+      // Refresh data
+      await load()
+      
+      console.log('CSV upload successful:', response.data)
+    } catch (err) {
+      console.error('Failed to upload CSV:', err)
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only upload interns for your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to upload CSV file.')
+      }
+    } finally {
+      setUploadLoading(false)
+    }
+  }
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        setError('Please select a valid CSV file.')
+        return
+      }
+      setCsvFile(file)
+      setError('')
+    }
+  }
+
   // Role-based access control
   function canEditIntern(intern) {
     if (!user) {
@@ -195,7 +298,92 @@ export default function InternManagement() {
       </div>
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
-      {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
+      {success && <div className="card border border-green-200 bg-green-50 text-green-700" style={{ whiteSpace: 'pre-line' }}>{success}</div>}
+
+      {/* Create Intern Form */}
+      <form onSubmit={createIntern} className="card space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Add New Intern</h2>
+        <div className="grid md:grid-cols-4 gap-4">
+          <input
+            className="input"
+            placeholder="Name *"
+            value={createForm.name}
+            onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+            required
+          />
+          <input
+            className="input"
+            type="email"
+            placeholder="Email *"
+            value={createForm.email}
+            onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+            required
+          />
+          <input
+            className="input"
+            placeholder="Tech Stack"
+            value={createForm.tech_stack}
+            onChange={(e) => setCreateForm({ ...createForm, tech_stack: e.target.value })}
+          />
+          <input
+            className="input"
+            placeholder="Batch Name"
+            value={createForm.batch_name}
+            onChange={(e) => setCreateForm({ ...createForm, batch_name: e.target.value })}
+          />
+        </div>
+        <button className="btn-primary w-full" type="submit">
+          Create Intern
+        </button>
+      </form>
+
+      {/* CSV Upload Section */}
+      <div className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Bulk Upload (CSV)</h2>
+          <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple interns at once</p>
+        </div>
+        
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <p className="text-xs font-semibold text-slate-700 mb-2">CSV Format:</p>
+          <code className="text-xs text-slate-600 bg-white px-2 py-1 rounded border border-slate-200 block">
+            name,email,tech_stack,batch_name
+          </code>
+          <p className="text-xs text-slate-500 mt-2">
+            Example: John Doe,john@example.com,Full Stack,KF-Cohort-5
+          </p>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-slate-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-brand-50 file:text-brand-700
+                hover:file:bg-brand-100
+                cursor-pointer"
+            />
+          </div>
+          <button
+            onClick={handleCsvUpload}
+            disabled={!csvFile || uploadLoading}
+            className="px-6 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+          >
+            {uploadLoading ? 'Uploading...' : 'Upload CSV'}
+          </button>
+        </div>
+        
+        {csvFile && (
+          <div className="text-sm text-slate-600">
+            Selected file: <span className="font-medium">{csvFile.name}</span>
+          </div>
+        )}
+      </div>
 
       {/* Search and Filters Section */}
       <div className="card space-y-4">
@@ -331,16 +519,12 @@ export default function InternManagement() {
                     </td>
                     <td className="td">
                       {editingId === item.id ? (
-                        <select 
+                        <input 
                           className="input" 
-                          value={editingForm.batch_id || ''} 
-                          onChange={(e) => setEditingForm({ ...editingForm, batch_id: e.target.value })}
-                        >
-                          <option value="">No batch</option>
-                          {batches.map((batch) => (
-                            <option key={batch.id} value={batch.id}>{batch.name}</option>
-                          ))}
-                        </select>
+                          value={editingForm.batch_name || ''} 
+                          onChange={(e) => setEditingForm({ ...editingForm, batch_name: e.target.value })}
+                          placeholder="Batch name"
+                        />
                       ) : batchName(item.batch_id)}
                     </td>
                     <td className="td space-x-3">
@@ -374,7 +558,7 @@ export default function InternManagement() {
                                     name: item.name,
                                     email: item.email,
                                     tech_stack: item.tech_stack || '',
-                                    batch_id: item.batch_id || '',
+                                    batch_name: batchName(item.batch_id) || '',
                                   })
                                 }}
                               >
