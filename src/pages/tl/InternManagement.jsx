@@ -262,13 +262,13 @@ export default function InternManagement() {
     }
     
     // ADMIN can edit all interns
-    if (user.role === 'ADMIN') {
+    if (user?.role === 'ADMIN') {
       console.log('User is ADMIN - can edit all')
       return true
     }
     
     // TECHNICAL_LEAD can edit only interns in their assigned batches
-    if (user.role === 'TECHNICAL_LEAD') {
+    if (user?.role === 'TECHNICAL_LEAD') {
       // Check if intern's batch is in the Tech Lead's assigned batches
       const allowedBatchIds = new Set(batches.map((batch) => batch.id))
       const hasAccess = allowedBatchIds.has(intern.batch_id)

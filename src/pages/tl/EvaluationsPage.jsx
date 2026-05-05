@@ -37,15 +37,15 @@ export default function EvaluationsPage() {
       const [profiles, batches, evaluationList] = await Promise.all([
         api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
         // Backend now filters batches for Tech Lead automatically
-        user.role === 'TECHNICAL_LEAD'
+        user?.role === 'TECHNICAL_LEAD'
           ? api.get('/batches', { params: { limit: 500 } })
           : Promise.resolve({ data: [] }),
         api.get('/evaluations', {
-          params: user.role === 'TECHNICAL_LEAD' ? { reviewed_by: user.id, limit: 500 } : { limit: 500 },
+          params: user?.role === 'TECHNICAL_LEAD' ? { reviewed_by: user.id, limit: 500 } : { limit: 500 },
         }),
       ])
 
-      if (user.role === 'TECHNICAL_LEAD') {
+      if (user?.role === 'TECHNICAL_LEAD') {
         const allowedBatchIds = new Set((batches.data || []).map((batch) => batch.id))
         setInterns((profiles.data || []).filter((intern) => allowedBatchIds.has(intern.batch_id)))
       } else {

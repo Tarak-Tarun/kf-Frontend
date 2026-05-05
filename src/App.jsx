@@ -32,9 +32,9 @@ import TLDashboard from './pages/tl/TLDashboard'
 function HomeRedirect() {
   const { user } = useAuth()
   if (!user) return <Navigate to="/login" replace />
-  if (user.role === 'ADMIN') return <Navigate to="/admin" replace />
-  if (user.role === 'TECHNICAL_LEAD') return <Navigate to="/tl" replace />
-  if (user.role === 'INTERN') return <Navigate to="/intern" replace />
+  if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />
+  if (user?.role === 'TECHNICAL_LEAD') return <Navigate to="/tl" replace />
+  if (user?.role === 'INTERN') return <Navigate to="/intern" replace />
   return <Navigate to="/login" replace />
 }
 

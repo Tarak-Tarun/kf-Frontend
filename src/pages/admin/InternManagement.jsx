@@ -219,13 +219,13 @@ export default function InternManagement() {
     if (!user) return false
     
     // ADMIN can edit all interns
-    if (user.role === 'ADMIN') return true
+    if (user?.role === 'ADMIN') return true
     
     // TECHNICAL_LEAD can edit only interns in their batches
-    if (user.role === 'TECHNICAL_LEAD' && intern.batch_id === user.batch_id) return true
+    if (user?.role === 'TECHNICAL_LEAD' && intern.batch_id === user.batch_id) return true
     
     // INTERN can edit only their own profile (but this page is not for interns)
-    if (user.role === 'INTERN' && intern.id === user.id) return true
+    if (user?.role === 'INTERN' && intern.id === user.id) return true
     
     return false
   }

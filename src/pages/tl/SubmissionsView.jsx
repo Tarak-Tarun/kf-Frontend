@@ -20,15 +20,17 @@ export default function SubmissionsView() {
   // Load interns once on mount
   useEffect(() => {
     async function loadInterns() {
+      if (!user?.id) return
+      
       try {
         const [profiles, batches] = await Promise.all([
           api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
           // Backend now filters batches for Tech Lead automatically
-          user.role === 'TECHNICAL_LEAD'
+          user?.role === 'TECHNICAL_LEAD'
             ? api.get('/batches', { params: { limit: 500 } })
             : Promise.resolve({ data: [] }),
         ])
-        if (user.role === 'TECHNICAL_LEAD') {
+        if (user?.role === 'TECHNICAL_LEAD') {
           const allowedBatchIds = new Set(batches.data.map((batch) => batch.id))
           setInterns(profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id)))
         } else {
