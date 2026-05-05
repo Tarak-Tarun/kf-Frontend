@@ -7,13 +7,16 @@ export default function AttendanceAdmin() {
   const { user } = useAuth()
   const [attendance, setAttendance] = useState([])
   const [batches, setBatches] = useState([])
+  const [interns, setInterns] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [markingAttendance, setMarkingAttendance] = useState({})
   
   // Filter states
   const [searchQuery, setSearchQuery] = useState('')
   const [batchFilter, setBatchFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split('T')[0])
   const [statusFilter, setStatusFilter] = useState('')
   
   const isAdmin = user?.role === 'ADMIN'
@@ -33,23 +36,56 @@ export default function AttendanceAdmin() {
       if (dateFilter) params.date = dateFilter
       if (statusFilter) params.status = statusFilter
       
-      const [attendanceList, batchList] = await Promise.all([
+      const [attendanceList, batchList, internList] = await Promise.all([
         api.get('/attendance', { params }),
         // Backend filters batches for Tech Lead automatically
         api.get('/batches', { params: { limit: 500 } }),
+        api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
       ])
       
       setAttendance(attendanceList.data || [])
       setBatches(batchList.data || [])
+      setInterns(internList.data || [])
       setError('')
     } catch (err) {
       console.error('Failed to load attendance:', err)
       setError(err.response?.data?.detail || 'Failed to load attendance records.')
       setAttendance([])
       setBatches([])
+      setInterns([])
     } finally {
       setLoading(false)
     }
+  }
+
+  async function markAttendance(internId, status) {
+    const key = `${internId}-${dateFilter}`
+    setMarkingAttendance(prev => ({ ...prev, [key]: true }))
+    setError('')
+    setSuccessMessage('')
+    
+    try {
+      await api.post('/attendance', {
+        user_id: internId,
+        date: dateFilter,
+        status: status,
+      })
+      
+      setSuccessMessage(`Attendance marked as ${status}`)
+      setTimeout(() => setSuccessMessage(''), 3000)
+      
+      // Reload attendance data
+      await load()
+    } catch (err) {
+      console.error('Failed to mark attendance:', err)
+      setError(err.response?.data?.detail || 'Failed to mark attendance.')
+    } finally {
+      setMarkingAttendance(prev => ({ ...prev, [key]: false }))
+    }
+  }
+
+  function getAttendanceForIntern(internId) {
+    return attendance.find(a => a.user_id === internId && a.date === dateFilter)
   }
 
   useEffect(() => {
@@ -59,7 +95,7 @@ export default function AttendanceAdmin() {
   function clearFilters() {
     setSearchQuery('')
     setBatchFilter('')
-    setDateFilter('')
+    setDateFilter(new Date().toISOString().split('T')[0])
     setStatusFilter('')
   }
 
@@ -79,11 +115,12 @@ export default function AttendanceAdmin() {
       <div>
         <h1 className="text-3xl font-black text-slate-900">Attendance</h1>
         <p className="text-sm text-slate-500 mt-2">
-          {isAdmin ? 'View attendance records for all interns.' : 'View attendance records for interns in your batches.'}
+          {isAdmin ? 'Mark and view attendance records for all interns.' : 'Mark and view attendance records for interns in your batches.'}
         </p>
       </div>
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
+      {successMessage && <div className="card border border-green-200 bg-green-50 text-green-700">{successMessage}</div>}
 
       {/* Search and Filters */}
       <div className="card space-y-4">
@@ -153,8 +190,112 @@ export default function AttendanceAdmin() {
         </div>
       </div>
 
-      {/* Attendance Table */}
+      {/* Mark Attendance Section */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Mark Attendance for {dateFilter}</h2>
+        <p className="text-sm text-slate-500 mb-4">Click on the status buttons to mark attendance for each intern.</p>
+        
+        {loading && (
+          <div className="text-center py-8 text-slate-500">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+            <p className="mt-2">Loading interns...</p>
+          </div>
+        )}
+        
+        {!loading && (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="th">Intern Name</th>
+                  <th className="th">Batch</th>
+                  <th className="th">Current Status</th>
+                  <th className="th">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {interns
+                  .filter(intern => {
+                    if (searchQuery && !intern.name?.toLowerCase().includes(searchQuery.toLowerCase())) return false
+                    if (batchFilter && intern.batch_id !== parseInt(batchFilter)) return false
+                    return true
+                  })
+                  .map((intern) => {
+                    const attendanceRecord = getAttendanceForIntern(intern.id)
+                    const currentStatus = attendanceRecord?.status
+                    const key = `${intern.id}-${dateFilter}`
+                    const isMarking = markingAttendance[key]
+                    
+                    return (
+                      <tr key={intern.id}>
+                        <td className="td font-medium">{intern.name || 'Unknown'}</td>
+                        <td className="td">{intern.batch_name || 'Unassigned'}</td>
+                        <td className="td">
+                          {currentStatus ? (
+                            <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(currentStatus)}`}>
+                              {currentStatus}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-sm">Not marked</span>
+                          )}
+                        </td>
+                        <td className="td">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => markAttendance(intern.id, 'present')}
+                              disabled={isMarking || currentStatus === 'present'}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                                currentStatus === 'present'
+                                  ? 'bg-green-100 text-green-700 border border-green-300 cursor-not-allowed'
+                                  : 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                              }`}
+                            >
+                              {isMarking ? '...' : 'Present'}
+                            </button>
+                            <button
+                              onClick={() => markAttendance(intern.id, 'absent')}
+                              disabled={isMarking || currentStatus === 'absent'}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                                currentStatus === 'absent'
+                                  ? 'bg-rose-100 text-rose-700 border border-rose-300 cursor-not-allowed'
+                                  : 'bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                              }`}
+                            >
+                              {isMarking ? '...' : 'Absent'}
+                            </button>
+                            <button
+                              onClick={() => markAttendance(intern.id, 'late')}
+                              disabled={isMarking || currentStatus === 'late'}
+                              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                                currentStatus === 'late'
+                                  ? 'bg-amber-100 text-amber-700 border border-amber-300 cursor-not-allowed'
+                                  : 'bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                              }`}
+                            >
+                              {isMarking ? '...' : 'Late'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                {interns.length === 0 && (
+                  <tr>
+                    <td className="td text-slate-500 text-center" colSpan="4">
+                      No interns found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Attendance History */}
       <div className="card overflow-x-auto">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Attendance History</h2>
+        
         {loading && (
           <div className="text-center py-8 text-slate-500">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
@@ -163,42 +304,39 @@ export default function AttendanceAdmin() {
         )}
         
         {!loading && (
-          <>
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Attendance Records</h2>
-            <table className="table">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="th">Intern Name</th>
-                  <th className="th">Batch</th>
-                  <th className="th">Date</th>
-                  <th className="th">Status</th>
-                  {isAdmin && <th className="th">Notes</th>}
+          <table className="table">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="th">Intern Name</th>
+                <th className="th">Batch</th>
+                <th className="th">Date</th>
+                <th className="th">Status</th>
+                {isAdmin && <th className="th">Notes</th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {attendance.map((record) => (
+                <tr key={record.id}>
+                  <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
+                  <td className="td">{record.batch_name || 'Unassigned'}</td>
+                  <td className="td">{record.date || '—'}</td>
+                  <td className="td">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
+                      {record.status || 'Unknown'}
+                    </span>
+                  </td>
+                  {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {attendance.map((record) => (
-                  <tr key={record.id}>
-                    <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
-                    <td className="td">{record.batch_name || 'Unassigned'}</td>
-                    <td className="td">{record.date || '—'}</td>
-                    <td className="td">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
-                        {record.status || 'Unknown'}
-                      </span>
-                    </td>
-                    {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
-                  </tr>
-                ))}
-                {attendance.length === 0 && (
-                  <tr>
-                    <td className="td text-slate-500 text-center" colSpan={isAdmin ? 5 : 4}>
-                      {hasActiveFilters ? 'No attendance records found matching your filters.' : 'No attendance records found.'}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </>
+              ))}
+              {attendance.length === 0 && (
+                <tr>
+                  <td className="td text-slate-500 text-center" colSpan={isAdmin ? 5 : 4}>
+                    {hasActiveFilters ? 'No attendance records found matching your filters.' : 'No attendance records found.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
