@@ -58,6 +58,23 @@ export default function MyUpdates() {
     }
   }
 
+  async function deleteSubmission(id) {
+    if (!window.confirm('Delete this submission?')) return
+    
+    try {
+      await api.delete(`/submissions/${id}`)
+      setMessage('Submission deleted successfully.')
+      load()
+    } catch (err) {
+      console.error('Failed to delete submission:', err)
+      if (err.response?.status === 403) {
+        setMessage('Access denied.')
+      } else {
+        setMessage(err.response?.data?.detail || 'Failed to delete submission.')
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -93,8 +110,18 @@ export default function MyUpdates() {
           {submissions.length === 0 && <div className="text-sm text-slate-500">No updates submitted yet.</div>}
           {submissions.map((submission) => (
             <div key={submission.id} className="rounded-xl border border-slate-200 p-4">
-              <div className="text-xs text-slate-400">{submission.submitted_for}</div>
-              <div className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{submission.content}</div>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="text-xs text-slate-400">{submission.submitted_for}</div>
+                  <div className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{submission.content}</div>
+                </div>
+                <button
+                  onClick={() => deleteSubmission(submission.id)}
+                  className="px-3 py-1.5 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition-all duration-200"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

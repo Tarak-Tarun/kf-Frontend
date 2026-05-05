@@ -11,8 +11,24 @@ export default function EvaluationsPage() {
   const [evaluations, setEvaluations] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [weekFilter, setWeekFilter] = useState('')
+  const [internFilter, setInternFilter] = useState('')
 
   const internMap = useMemo(() => Object.fromEntries(interns.map((intern) => [intern.id, intern])), [interns])
+
+  // Filter evaluations based on search and filters
+  const filteredEvaluations = useMemo(() => {
+    return evaluations.filter((item) => {
+      const internName = internMap[item.intern_id]?.name || ''
+      const matchesSearch = !searchQuery || 
+        internName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.feedback && item.feedback.toLowerCase().includes(searchQuery.toLowerCase()))
+      const matchesWeek = !weekFilter || item.week_number === Number(weekFilter)
+      const matchesIntern = !internFilter || item.intern_id === internFilter
+      return matchesSearch && matchesWeek && matchesIntern
+    })
+  }, [evaluations, searchQuery, weekFilter, internFilter, internMap])
 
   async function load() {
     if (!user?.id) return
@@ -97,7 +113,46 @@ export default function EvaluationsPage() {
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
 
+      {/* Search and Filters */}
+      <div className="card">
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by intern name or feedback..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Intern</label>
+            <select className="input" value={internFilter} onChange={(e) => setInternFilter(e.target.value)}>
+              <option value="">All Interns</option>
+              {interns.map((intern) => (
+                <option key={intern.id} value={intern.id}>{intern.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Week</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="Week number..."
+              value={weekFilter}
+              onChange={(e) => setWeekFilter(e.target.value)}
+              min="1"
+              max="52"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Create Evaluation Form */}
       <form onSubmit={createEvaluation} className="card space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">Record New Evaluation</h2>
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -182,7 +237,7 @@ export default function EvaluationsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {evaluations.map((item) => (
+            {filteredEvaluations.map((item) => (
               <tr key={item.id}>
                 <td className="td">{internMap[item.intern_id]?.name || item.intern_id}</td>
                 <td className="td">{item.week_number}</td>
@@ -200,7 +255,7 @@ export default function EvaluationsPage() {
                 )}
               </tr>
             ))}
-            {evaluations.length === 0 && (
+            {filteredEvaluations.length === 0 && (
               <tr><td className="td text-slate-500" colSpan={user?.role === 'ADMIN' ? 5 : 4}>No evaluations found.</td></tr>
             )}
           </tbody>

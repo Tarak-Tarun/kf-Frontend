@@ -8,7 +8,11 @@ export default function SubmissionsView() {
   const [interns, setInterns] = useState([])
   const [submissions, setSubmissions] = useState([])
   const [filters, setFilters] = useState({ user_id: '', submitted_for: '' })
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sortBy, setSortBy] = useState('submitted_for')
+  const [sortOrder, setSortOrder] = useState('desc')
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(true)
 
   const internMap = useMemo(() => Object.fromEntries(interns.map((intern) => [intern.id, intern])), [interns])
@@ -47,14 +51,21 @@ export default function SubmissionsView() {
         const params = { limit: 500 }
         if (filters.user_id) params.user_id = filters.user_id
         if (filters.submitted_for) params.submitted_for = filters.submitted_for
+        if (searchQuery) params.search = searchQuery
+        if (sortBy) {
+          params.sort_by = sortBy
+          params.order = sortOrder
+        }
+        
         const { data } = await api.get('/submissions', { params })
         
         // Filter to allowed interns only
         const allowedIds = new Set(interns.map((intern) => intern.id))
         const filtered = data.filter((item) => allowedIds.size === 0 || allowedIds.has(item.user_id))
-        setSubmissions(filtered)
+        setSubmissions(filtered || [])
         setError('')
       } catch (err) {
+        console.error('Failed to load submissions:', err)
         setError(err.response?.data?.detail || 'Failed to load submissions.')
         setSubmissions([])
       } finally {
@@ -62,14 +73,31 @@ export default function SubmissionsView() {
       }
     }
     loadSubmissions()
-  }, [filters.user_id, filters.submitted_for, interns.length])
+  }, [filters.user_id, filters.submitted_for, searchQuery, sortBy, sortOrder, interns.length])
 
-  const handleUserFilter = (e) => {
-    setFilters({ ...filters, user_id: e.target.value })
-  }
-
-  const handleDateFilter = (e) => {
-    setFilters({ ...filters, submitted_for: e.target.value })
+  async function deleteSubmission(id) {
+    if (!window.confirm('Delete this submission?')) return
+    
+    try {
+      await api.delete(`/submissions/${id}`)
+      setSuccess('Submission deleted successfully.')
+      setTimeout(() => setSuccess(''), 3000)
+      // Reload submissions
+      const params = { limit: 500 }
+      if (filters.user_id) params.user_id = filters.user_id
+      if (filters.submitted_for) params.submitted_for = filters.submitted_for
+      const { data } = await api.get('/submissions', { params })
+      const allowedIds = new Set(interns.map((intern) => intern.id))
+      const filtered = data.filter((item) => allowedIds.size === 0 || allowedIds.has(item.user_id))
+      setSubmissions(filtered)
+    } catch (err) {
+      console.error('Failed to delete submission:', err)
+      if (err.response?.status === 403) {
+        setError('Access denied.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to delete submission.')
+      }
+    }
   }
 
   return (
@@ -80,24 +108,51 @@ export default function SubmissionsView() {
       </div>
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
+      {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
-      <div className="card grid md:grid-cols-2 gap-4">
-        <select 
-          className="input" 
-          value={filters.user_id} 
-          onChange={handleUserFilter}
-        >
-          <option value="">All interns</option>
-          {interns.map((intern) => (
-            <option key={intern.id} value={intern.id}>{intern.name}</option>
-          ))}
-        </select>
-        <input 
-          className="input" 
-          type="date" 
-          value={filters.submitted_for} 
-          onChange={handleDateFilter} 
-        />
+      {/* Search and Filters */}
+      <div className="card">
+        <div className="grid md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search submissions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Intern</label>
+            <select 
+              className="input" 
+              value={filters.user_id} 
+              onChange={(e) => setFilters({ ...filters, user_id: e.target.value })}
+            >
+              <option value="">All interns</option>
+              {interns.map((intern) => (
+                <option key={intern.id} value={intern.id}>{intern.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Date</label>
+            <input 
+              className="input" 
+              type="date" 
+              value={filters.submitted_for} 
+              onChange={(e) => setFilters({ ...filters, submitted_for: e.target.value })} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sort By</label>
+            <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="submitted_for">Date</option>
+              <option value="created_at">Created</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       <div className="space-y-3">
@@ -108,14 +163,23 @@ export default function SubmissionsView() {
         ) : (
           submissions.map((item) => (
             <div key={item.id} className="card">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-slate-900">
-                  {/* Use submitted_by_name from API, fallback to internMap lookup */}
-                  {item.submitted_by_name || internMap[item.user_id]?.name || item.user_id}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-slate-900">
+                      {item.submitted_by_name || internMap[item.user_id]?.name || item.user_id}
+                    </div>
+                    <div className="text-xs text-slate-400">{item.submitted_for}</div>
+                  </div>
+                  <div className="text-sm text-slate-700 mt-3 whitespace-pre-wrap">{item.content}</div>
                 </div>
-                <div className="text-xs text-slate-400">{item.submitted_for}</div>
+                <button
+                  onClick={() => deleteSubmission(item.id)}
+                  className="px-3 py-1.5 text-sm font-medium text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md transition-all duration-200 shrink-0"
+                >
+                  Delete
+                </button>
               </div>
-              <div className="text-sm text-slate-700 mt-3 whitespace-pre-wrap">{item.content}</div>
             </div>
           ))
         )}
