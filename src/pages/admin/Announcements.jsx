@@ -212,8 +212,9 @@ export default function Announcements() {
         <h2 className="text-lg font-semibold text-slate-900">All Notifications</h2>
         {notifications.length === 0 && <div className="card text-slate-500">No notifications found.</div>}
         {notifications.map((item) => {
-          const isSender = item.sender_id === user?.id
-          const isReceiver = item.user_id === user?.id
+          // Use is_sender from backend to determine perspective
+          const isSender = item.is_sender === true
+          const isReceiver = !isSender
           
           return (
             <div key={item.id} className={`card ${item.is_read ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-500'}`}>
@@ -221,9 +222,13 @@ export default function Announcements() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <div className="font-semibold text-slate-900">{item.title}</div>
-                    {!item.is_read && isReceiver && (
+                    
+                    {/* New badge - only for receiver if unread */}
+                    {isReceiver && !item.is_read && (
                       <span className="px-2 py-0.5 text-xs font-semibold bg-blue-500 text-white rounded-full">New</span>
                     )}
+                    
+                    {/* Read status - only for sender */}
                     {isSender && (
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${
                         item.is_read 
@@ -233,11 +238,15 @@ export default function Announcements() {
                         {item.is_read ? 'Seen' : 'Sent'}
                       </span>
                     )}
+                    
+                    {/* Type badge */}
                     {item.type && (
                       <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getTypeBadgeColor(item.type)}`}>
                         {item.type}
                       </span>
                     )}
+                    
+                    {/* Broadcast badge */}
                     {item.is_broadcast && (
                       <span className="px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-300 rounded-full">
                         Broadcast
@@ -245,28 +254,33 @@ export default function Announcements() {
                     )}
                   </div>
                   
-                  {/* Sender Information */}
-                  {item.sender_name && (
+                  {/* Sender name - only show to receiver */}
+                  {isReceiver && item.sender_name && (
                     <div className="text-xs text-slate-500 mt-1">
                       From: <span className="font-medium">{item.sender_name}</span>
+                    </div>
+                  )}
+                  
+                  {/* Receiver name - only show to sender */}
+                  {isSender && !item.is_broadcast && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      To: <span className="font-medium">{profileMap[item.user_id]?.name || item.user_id}</span>
                     </div>
                   )}
                   
                   {/* Message */}
                   <div className="text-sm text-slate-700 mt-2">{item.message}</div>
                   
-                  {/* Footer Info */}
+                  {/* Timestamp */}
                   <div className="text-xs text-slate-400 mt-3">
-                    {item.is_broadcast ? (
-                      'Sent to all users'
-                    ) : (
-                      <>
-                        {isSender ? `To: ${profileMap[item.user_id]?.name || item.user_id}` : `Recipient: ${profileMap[item.user_id]?.name || 'You'}`}
-                      </>
-                    )} · {new Date(item.created_at).toLocaleString()}
+                    {item.is_broadcast && 'Sent to all users · '}
+                    {new Date(item.created_at).toLocaleString()}
                   </div>
                 </div>
+                
+                {/* Action buttons */}
                 <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  {/* Mark as read - only for receiver */}
                   {isReceiver && (
                     <button 
                       className="px-4 py-2 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors flex items-center gap-2 justify-center min-w-[140px]"
@@ -289,6 +303,8 @@ export default function Announcements() {
                       )}
                     </button>
                   )}
+                  
+                  {/* Delete - only for managers */}
                   {canManage && (
                     <button 
                       className="px-4 py-2 text-sm font-medium text-white bg-rose-600 hover:bg-rose-700 rounded-lg transition-colors flex items-center gap-2 justify-center min-w-[120px]"
