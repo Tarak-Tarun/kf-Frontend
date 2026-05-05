@@ -66,7 +66,7 @@ export default function App() {
             <Route path="/admin/archive" element={<AR roles={['ADMIN']}><UserArchive /></AR>} />
             <Route path="/batches" element={<AR roles={['ADMIN']}><BatchManagement /></AR>} />
             <Route path="/tasks" element={<AR roles={['ADMIN', 'TECHNICAL_LEAD']}><WeeklyPlans /></AR>} />
-            <Route path="/attendance" element={<AR roles={['ADMIN']}><AttendanceAdmin /></AR>} />
+            <Route path="/attendance" element={<AR roles={['ADMIN', 'TECHNICAL_LEAD']}><AttendanceAdmin /></AR>} />
             <Route path="/submissions" element={<AR roles={['ADMIN', 'TECHNICAL_LEAD']}><SubmissionsView /></AR>} />
             <Route path="/evaluations" element={<AR roles={['ADMIN', 'TECHNICAL_LEAD']}><EvaluationsPage /></AR>} />
             <Route path="/notifications" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />

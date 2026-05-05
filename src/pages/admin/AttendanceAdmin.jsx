@@ -1,121 +1,206 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
+import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
 export default function AttendanceAdmin() {
-  const [interns, setInterns] = useState([])
-  const [selectedInternId, setSelectedInternId] = useState('')
-  const [start, setStart] = useState(new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10))
-  const [end, setEnd] = useState(new Date().toISOString().slice(0, 10))
-  const [records, setRecords] = useState([])
+  const { user } = useAuth()
+  const [attendance, setAttendance] = useState([])
+  const [batches, setBatches] = useState([])
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [batchFilter, setBatchFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  
+  const isAdmin = user?.role === 'ADMIN'
+  const isTechLead = user?.role === 'TECHNICAL_LEAD'
 
-  useEffect(() => {
-    api.get('/profiles', { params: { role: 'INTERN', limit: 500 } })
-      .then((response) => setInterns(response.data))
-      .catch((err) => setError(err.response?.data?.detail || 'Failed to load intern list.'))
-  }, [])
-
-  useEffect(() => {
-    if (!selectedInternId) {
-      setRecords([])
-      return
-    }
-    api.get('/attendance', { params: { user_id: selectedInternId, start, end, limit: 500 } })
-      .then((response) => {
-        setRecords(response.data)
-        setError('')
-      })
-      .catch((err) => setError(err.response?.data?.detail || 'Failed to load attendance records.'))
-  }, [selectedInternId, start, end])
-
-  const recordMap = useMemo(() => Object.fromEntries(records.map((item) => [item.day, item])), [records])
-  const days = useMemo(() => buildDateRange(start, end), [start, end])
-
-  async function markAttendance(day, status) {
+  async function load() {
+    if (!user?.id) return
+    
+    setLoading(true)
     try {
-      const existing = recordMap[day]
-      if (existing) {
-        await api.put(`/attendance/${existing.id}`, { status })
-      } else {
-        await api.post('/attendance', { user_id: selectedInternId, day, status })
+      const params = {
+        limit: 500,
       }
-      const { data } = await api.get('/attendance', { params: { user_id: selectedInternId, start, end, limit: 500 } })
-      setRecords(data)
+      
+      if (searchQuery) params.search = searchQuery
+      if (batchFilter) params.batch_id = batchFilter
+      if (dateFilter) params.date = dateFilter
+      if (statusFilter) params.status = statusFilter
+      
+      const [attendanceList, batchList] = await Promise.all([
+        api.get('/attendance', { params }),
+        // Backend filters batches for Tech Lead automatically
+        api.get('/batches', { params: { limit: 500 } }),
+      ])
+      
+      setAttendance(attendanceList.data || [])
+      setBatches(batchList.data || [])
+      setError('')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to save attendance.')
+      console.error('Failed to load attendance:', err)
+      setError(err.response?.data?.detail || 'Failed to load attendance records.')
+      setAttendance([])
+      setBatches([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  async function clearAttendance(day) {
-    const existing = recordMap[day]
-    if (!existing) return
-    try {
-      await api.delete(`/attendance/${existing.id}`)
-      const { data } = await api.get('/attendance', { params: { user_id: selectedInternId, start, end, limit: 500 } })
-      setRecords(data)
-    } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to clear attendance.')
+  useEffect(() => {
+    load()
+  }, [user, searchQuery, batchFilter, dateFilter, statusFilter])
+
+  function clearFilters() {
+    setSearchQuery('')
+    setBatchFilter('')
+    setDateFilter('')
+    setStatusFilter('')
+  }
+
+  const hasActiveFilters = searchQuery || batchFilter || dateFilter || statusFilter
+
+  function getStatusBadge(status) {
+    const styles = {
+      present: 'bg-green-100 text-green-700 border-green-300',
+      absent: 'bg-rose-100 text-rose-700 border-rose-300',
+      late: 'bg-amber-100 text-amber-700 border-amber-300',
     }
+    return styles[status?.toLowerCase()] || 'bg-slate-100 text-slate-700 border-slate-300'
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-black text-slate-900">Attendance</h1>
-        <p className="text-sm text-slate-500 mt-2">Mark present, absent, or leave for interns by day.</p>
+        <p className="text-sm text-slate-500 mt-2">
+          {isAdmin ? 'View attendance records for all interns.' : 'View attendance records for interns in your batches.'}
+        </p>
       </div>
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
 
-      <div className="card grid md:grid-cols-3 gap-4">
-        <select className="input" value={selectedInternId} onChange={(e) => setSelectedInternId(e.target.value)}>
-          <option value="">Select intern</option>
-          {interns.map((intern) => <option key={intern.id} value={intern.id}>{intern.name}</option>)}
-        </select>
-        <input className="input" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
-        <input className="input" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+      {/* Search and Filters */}
+      <div className="card space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-slate-900">Search & Filter</h2>
+          {hasActiveFilters && (
+            <button 
+              onClick={clearFilters}
+              className="text-sm text-brand-700 font-semibold hover:text-brand-800"
+            >
+              Clear All Filters
+            </button>
+          )}
+        </div>
+        
+        <div className="grid md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by intern name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          
+          {isAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Batch</label>
+              <select 
+                className="input" 
+                value={batchFilter} 
+                onChange={(e) => setBatchFilter(e.target.value)}
+              >
+                <option value="">All Batches</option>
+                {batches.map((batch) => (
+                  <option key={batch.id} value={batch.id}>{batch.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Date</label>
+            <input
+              type="date"
+              className="input"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Status</label>
+            <select 
+              className="input" 
+              value={statusFilter} 
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="present">Present</option>
+              <option value="absent">Absent</option>
+              <option value="late">Late</option>
+            </select>
+          </div>
+        </div>
       </div>
 
+      {/* Attendance Table */}
       <div className="card overflow-x-auto">
-        <table className="table">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="th">Date</th>
-              <th className="th">Current Status</th>
-              <th className="th">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {days.map((day) => {
-              const record = recordMap[day]
-              return (
-                <tr key={day}>
-                  <td className="td">{day}</td>
-                  <td className="td">{record?.status || 'Unmarked'}</td>
-                  <td className="td space-x-2">
-                    <button className="text-sm text-emerald-700 font-semibold" onClick={() => markAttendance(day, 'PRESENT')}>Present</button>
-                    <button className="text-sm text-amber-700 font-semibold" onClick={() => markAttendance(day, 'LEAVE')}>Leave</button>
-                    <button className="text-sm text-rose-700 font-semibold" onClick={() => markAttendance(day, 'ABSENT')}>Absent</button>
-                    {record && <button className="text-sm text-slate-500" onClick={() => clearAttendance(day)}>Clear</button>}
-                  </td>
+        {loading && (
+          <div className="text-center py-8 text-slate-500">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600"></div>
+            <p className="mt-2">Loading attendance records...</p>
+          </div>
+        )}
+        
+        {!loading && (
+          <>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Attendance Records</h2>
+            <table className="table">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="th">Intern Name</th>
+                  <th className="th">Batch</th>
+                  <th className="th">Date</th>
+                  <th className="th">Status</th>
+                  {isAdmin && <th className="th">Notes</th>}
                 </tr>
-              )
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {attendance.map((record) => (
+                  <tr key={record.id}>
+                    <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
+                    <td className="td">{record.batch_name || 'Unassigned'}</td>
+                    <td className="td">{record.date || '—'}</td>
+                    <td className="td">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
+                        {record.status || 'Unknown'}
+                      </span>
+                    </td>
+                    {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
+                  </tr>
+                ))}
+                {attendance.length === 0 && (
+                  <tr>
+                    <td className="td text-slate-500 text-center" colSpan={isAdmin ? 5 : 4}>
+                      {hasActiveFilters ? 'No attendance records found matching your filters.' : 'No attendance records found.'}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </>
+        )}
       </div>
     </div>
   )
-}
-
-function buildDateRange(start, end) {
-  const values = []
-  const cursor = new Date(start)
-  const last = new Date(end)
-  while (cursor <= last) {
-    values.push(cursor.toISOString().slice(0, 10))
-    cursor.setDate(cursor.getDate() + 1)
-  }
-  return values
 }
