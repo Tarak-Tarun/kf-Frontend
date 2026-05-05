@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
-const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_name: '' }
+const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_id: '' }
 
 export default function InternManagement() {
   const { user } = useAuth()
@@ -87,17 +87,19 @@ export default function InternManagement() {
   async function createProfile(event) {
     event.preventDefault()
     
-    // Validate batch name
-    if (!form.batch_name || !form.batch_name.trim()) {
-      setError('Batch name is required.')
+    // Validate batch selection
+    if (!form.batch_id) {
+      setError('Please select a batch.')
       return
     }
     
     try {
       await api.post('/profiles', {
-        ...form,
+        name: form.name,
+        email: form.email,
+        tech_stack: form.tech_stack,
         role: 'INTERN',
-        batch_name: form.batch_name.trim(),
+        batch_id: parseInt(form.batch_id),
       })
       setForm(EMPTY_FORM)
       setError('')
@@ -272,13 +274,19 @@ export default function InternManagement() {
           value={form.tech_stack} 
           onChange={(e) => { setForm({ ...form, tech_stack: e.target.value }); setError(''); }} 
         />
-        <input 
+        <select 
           className="input" 
-          placeholder="Batch Name *" 
-          value={form.batch_name} 
-          onChange={(e) => { setForm({ ...form, batch_name: e.target.value }); setError(''); }}
+          value={form.batch_id} 
+          onChange={(e) => { setForm({ ...form, batch_id: e.target.value }); setError(''); }}
           required
-        />
+        >
+          <option value="">Select Batch *</option>
+          {batches.map((batch) => (
+            <option key={batch.id} value={batch.id}>
+              {batch.name}
+            </option>
+          ))}
+        </select>
         <button className="btn-primary" type="submit">Create Intern</button>
       </form>
 
