@@ -10,7 +10,6 @@ export default function WeeklyPlans() {
   const [users, setUsers] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [selectedBatch, setSelectedBatch] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
   const [sortOrder, setSortOrder] = useState('desc')
   const [editingId, setEditingId] = useState(null)
@@ -22,7 +21,6 @@ export default function WeeklyPlans() {
     try {
       const params = { limit: 500 }
       if (selectedBatch) params.batch_id = selectedBatch
-      if (searchQuery) params.search = searchQuery
       if (sortBy) {
         params.sort_by = sortBy
         params.order = sortOrder
@@ -43,7 +41,7 @@ export default function WeeklyPlans() {
     }
   }
 
-  useEffect(() => { load() }, [selectedBatch, searchQuery, sortBy, sortOrder])
+  useEffect(() => { load() }, [selectedBatch, sortBy, sortOrder])
 
   // Load users when batch is selected in form
   useEffect(() => {
@@ -135,19 +133,9 @@ export default function WeeklyPlans() {
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
       {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
-      {/* Search and Filters */}
+      {/* Filters */}
       <div className="card">
-        <div className="grid md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
-            <input
-              type="text"
-              className="input"
-              placeholder="Search tasks..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+        <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Batch</label>
             <select className="input" value={selectedBatch} onChange={(e) => setSelectedBatch(e.target.value)}>
