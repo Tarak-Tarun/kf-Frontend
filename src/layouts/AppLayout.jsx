@@ -1,6 +1,8 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 
 import { useAuth } from '../hooks/AuthContext'
+import api from '../lib/api'
 
 const NAV = {
   ADMIN: [
@@ -35,6 +37,35 @@ export default function AppLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const items = NAV[user?.role] || []
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  async function fetchUnreadCount() {
+    try {
+      const res = await api.get('/notifications', {
+        params: { is_read: false, limit: 500 },
+      })
+      setUnreadCount(res.data.length)
+    } catch (err) {
+      // Silently fail - don't disrupt UI
+      console.error('Failed to fetch unread count:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchUnreadCount()
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000)
+      // Listen for notification updates
+      const handleNotificationUpdate = () => fetchUnreadCount()
+      window.addEventListener('notificationUpdate', handleNotificationUpdate)
+      
+      return () => {
+        clearInterval(interval)
+        window.removeEventListener('notificationUpdate', handleNotificationUpdate)
+      }
+    }
+  }, [user])
 
   function handleLogout() {
     logout()
@@ -59,12 +90,19 @@ export default function AppLayout() {
               to={item.to}
               end={item.to === '/admin' || item.to === '/tl' || item.to === '/intern'}
               className={({ isActive }) =>
-                `block px-4 py-2.5 rounded-lg text-sm font-medium transition ${
+                `block px-4 py-2.5 rounded-lg text-sm font-medium transition relative ${
                   isActive ? 'bg-white text-brand-800' : 'text-slate-200 hover:bg-white/10 hover:text-white'
                 }`
               }
             >
-              {item.label}
+              <span className="flex items-center justify-between">
+                {item.label}
+                {item.to === '/notifications' && unreadCount > 0 && (
+                  <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </span>
             </NavLink>
           ))}
         </nav>

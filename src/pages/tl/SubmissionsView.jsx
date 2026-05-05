@@ -19,8 +19,9 @@ export default function SubmissionsView() {
       try {
         const [profiles, batches] = await Promise.all([
           api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
+          // Backend now filters batches for Tech Lead automatically
           user.role === 'TECHNICAL_LEAD'
-            ? api.get('/batches', { params: { team_lead_id: user.id, limit: 500 } })
+            ? api.get('/batches', { params: { limit: 500 } })
             : Promise.resolve({ data: [] }),
         ])
         if (user.role === 'TECHNICAL_LEAD') {

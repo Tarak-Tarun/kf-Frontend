@@ -13,8 +13,9 @@ export default function TLDashboard() {
     async function load() {
       try {
         setLoading(true)
+        // Backend now filters batches for Tech Lead automatically
         const [batches, interns, submissions, evaluations] = await Promise.all([
-          api.get('/batches', { params: { team_lead_id: user.id, limit: 500 } }),
+          api.get('/batches', { params: { limit: 500 } }),
           api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
           api.get('/submissions', { params: { limit: 500 } }),
           api.get('/evaluations', { params: { reviewed_by: user.id, limit: 500 } }),

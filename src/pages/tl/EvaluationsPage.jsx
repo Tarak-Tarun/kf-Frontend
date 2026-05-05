@@ -18,8 +18,9 @@ export default function EvaluationsPage() {
     try {
       const [profiles, batches, evaluationList] = await Promise.all([
         api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
+        // Backend now filters batches for Tech Lead automatically
         user.role === 'TECHNICAL_LEAD'
-          ? api.get('/batches', { params: { team_lead_id: user.id, limit: 500 } })
+          ? api.get('/batches', { params: { limit: 500 } })
           : Promise.resolve({ data: [] }),
         api.get('/evaluations', {
           params: user.role === 'TECHNICAL_LEAD' ? { reviewed_by: user.id, limit: 500 } : { limit: 500 },
@@ -67,7 +68,11 @@ export default function EvaluationsPage() {
       setError('')
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete evaluation.')
+      if (err.response?.status === 403) {
+        setError('You can only manage resources in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to delete evaluation.')
+      }
     }
   }
 

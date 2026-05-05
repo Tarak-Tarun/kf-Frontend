@@ -44,9 +44,14 @@ export default function WeeklyPlans() {
     try {
       await api.put(`/tasks/${id}`, editingForm)
       setEditingId(null)
+      setError('')
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to update task.')
+      if (err.response?.status === 403) {
+        setError('You can only manage resources in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to update task.')
+      }
     }
   }
 
@@ -54,9 +59,14 @@ export default function WeeklyPlans() {
     if (!window.confirm('Delete this task?')) return
     try {
       await api.delete(`/tasks/${id}`)
+      setError('')
       load()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to delete task.')
+      if (err.response?.status === 403) {
+        setError('You can only manage resources in your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to delete task.')
+      }
     }
   }
 

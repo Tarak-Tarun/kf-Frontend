@@ -12,8 +12,9 @@ export default function InternManagement() {
   useEffect(() => {
     async function load() {
       try {
+        // Backend now filters batches for Tech Lead automatically
         const [batchList, profiles] = await Promise.all([
-          api.get('/batches', { params: { team_lead_id: user.id, limit: 500 } }),
+          api.get('/batches', { params: { limit: 500 } }),
           api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
         ])
         setBatches(batchList.data)
