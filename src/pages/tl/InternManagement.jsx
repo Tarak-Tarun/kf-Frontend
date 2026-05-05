@@ -10,6 +10,7 @@ export default function InternManagement() {
   const [interns, setInterns] = useState([])
   const [batches, setBatches] = useState([])
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editingForm, setEditingForm] = useState(EMPTY_FORM)
   const [loading, setLoading] = useState(false)
@@ -71,15 +72,36 @@ export default function InternManagement() {
 
   async function saveProfile(id) {
     try {
-      await api.put(`/profiles/${id}`, {
-        ...editingForm,
+      const payload = {
+        name: editingForm.name,
+        email: editingForm.email,
+        tech_stack: editingForm.tech_stack || null,
         batch_id: editingForm.batch_id || null,
-      })
+      }
+      
+      console.log('Saving profile:', id, payload)
+      
+      await api.put(`/profiles/${id}`, payload)
+      
+      // Update local state immediately for better UX
+      setInterns(prev =>
+        prev.map(intern =>
+          intern.id === id ? { ...intern, ...payload } : intern
+        )
+      )
+      
       setEditingId(null)
       setEditingForm(EMPTY_FORM)
       setError('')
-      load()
+      setSuccess('Intern profile updated successfully!')
+      setTimeout(() => setSuccess(''), 3000)
+      
+      // Refresh data from backend to ensure consistency
+      await load()
+      
+      console.log('Profile saved successfully')
     } catch (err) {
+      console.error('Failed to save profile:', err)
       if (err.response?.status === 403) {
         setError('Access denied: You can only edit interns in your assigned batches.')
       } else {
@@ -92,10 +114,23 @@ export default function InternManagement() {
     if (!window.confirm(`Delete intern profile for ${internName}?\n\nThis action cannot be undone.`)) return
     
     try {
+      console.log('Deleting profile:', id)
+      
       await api.delete(`/profiles/${id}`)
+      
+      // Update local state immediately
+      setInterns(prev => prev.filter(intern => intern.id !== id))
+      
       setError('')
-      load()
+      setSuccess(`Intern profile for ${internName} deleted successfully!`)
+      setTimeout(() => setSuccess(''), 3000)
+      
+      // Refresh data from backend
+      await load()
+      
+      console.log('Profile deleted successfully')
     } catch (err) {
+      console.error('Failed to delete profile:', err)
       if (err.response?.status === 403) {
         setError('Access denied: You can only delete interns in your assigned batches.')
       } else {
@@ -160,6 +195,7 @@ export default function InternManagement() {
       </div>
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
+      {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
       {/* Search and Filters Section */}
       <div className="card space-y-4">
