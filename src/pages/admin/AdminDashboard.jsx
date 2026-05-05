@@ -28,11 +28,11 @@ const [interns, tls, batches, tasks, submissions, evaluations, notifications, pr
         
         const batchMap = Object.fromEntries(batches.data.map((batch) => [batch.id, batch]))
         const profileMap = Object.fromEntries(profiles.data.map((profile) => [profile.id, profile]))
-        const submissionsByDay = submissions.data.reduce((acc, item) => {
-          const key = item.submitted_for
-          acc[key] = (acc[key] || 0) + 1
-          return acc
-        }, {})
+        
+        // Get recent submissions (sorted by date, most recent first)
+        const recentSubmissionsList = submissions.data
+          .sort((a, b) => new Date(b.submitted_for) - new Date(a.submitted_for))
+          .slice(0, 5)
 
 setSummary({
           internCount: activeInterns.length,
@@ -42,9 +42,7 @@ setSummary({
           submissionCount: submissions.data.length,
           evaluationCount: evaluations.data.length,
           notificationCount: notifications.data.length,
-          recentSubmissions: Object.entries(submissionsByDay)
-            .sort((a, b) => b[0].localeCompare(a[0]))
-            .slice(0, 5),
+          recentSubmissions: recentSubmissionsList,
           internsByBatch: activeInterns.reduce((acc, intern) => {
             const batchName = batchMap[intern.batch_id]?.name || 'Unassigned'
             acc[batchName] = (acc[batchName] || 0) + 1
@@ -135,12 +133,21 @@ setSummary({
             {summary.recentSubmissions.length === 0 && (
               <div className="text-sm text-slate-500">No submissions yet.</div>
             )}
-            {summary.recentSubmissions.map(([day, count]) => (
-              <div key={day} className="flex items-center justify-between">
-                <span className="text-sm text-slate-700">{day}</span>
-                <span className="text-sm font-semibold text-brand-700">{count} update(s)</span>
-              </div>
-            ))}
+            {summary.recentSubmissions.map((submission) => {
+              const internProfile = summary.profileMap[submission.intern_id]
+              const batchName = submission.batch_name ?? summary.batchMap[submission.batch_id]?.name ?? 'N/A'
+              const internName = internProfile?.name ?? submission.intern_name ?? 'Unknown'
+              
+              return (
+                <div key={submission.id} className="flex items-start justify-between gap-4 pb-3 border-b border-slate-100 last:border-b-0">
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900">{batchName}</p>
+                    <p className="text-sm text-slate-600">{internName}</p>
+                    <p className="text-xs text-slate-400 mt-1">{submission.submitted_for}</p>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -152,9 +159,9 @@ setSummary({
         ) : (
           <div className="overflow-x-auto">
             <table className="table">
-<thead className="bg-slate-50">
+              <thead className="bg-slate-50">
                 <tr>
-                  <th className="th">Batch ID</th>
+                  <th className="th">Batch</th>
                   <th className="th">Intern Name</th>
                   <th className="th">Week</th>
                   <th className="th">Score</th>
@@ -164,11 +171,11 @@ setSummary({
               <tbody className="divide-y divide-slate-100">
                 {summary.recentEvaluations.map((item) => {
                   const profile = summary.profileMap[item.intern_id]
-                  const batchId = profile?.batch_id || 'N/A'
+                  const batchName = summary.batchMap[profile?.batch_id]?.name ?? 'N/A'
                   const internName = profile?.name || item.intern_id
                   return (
                     <tr key={item.id}>
-                      <td className="td">{batchId}</td>
+                      <td className="td">{batchName}</td>
                       <td className="td">{internName}</td>
                       <td className="td">{item.week_number}</td>
                       <td className="td font-semibold">{item.score}</td>
