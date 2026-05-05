@@ -7,7 +7,7 @@ const EMPTY_FORM = { title: '', description: '', batch_id: '', due_date: '', ass
 export default function WeeklyPlans() {
   const [tasks, setTasks] = useState([])
   const [batches, setBatches] = useState([])
-  const [users, setUsers] = useState([])
+  const [allUsers, setAllUsers] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [selectedBatch, setSelectedBatch] = useState('')
   const [sortBy, setSortBy] = useState('created_at')
@@ -26,43 +26,28 @@ export default function WeeklyPlans() {
         params.order = sortOrder
       }
       
-      const [taskList, batchList] = await Promise.all([
+      const [taskList, batchList, userList] = await Promise.all([
         api.get('/tasks', { params }),
         api.get('/batches', { params: { limit: 500 } }),
+        api.get('/profiles', { params: { limit: 500 } }),
       ])
       setTasks(taskList.data || [])
       setBatches(batchList.data || [])
+      setAllUsers(userList.data || [])
       setError('')
     } catch (err) {
       console.error('Failed to load tasks:', err)
       setError(err.response?.data?.detail || 'Failed to load tasks.')
       setTasks([])
       setBatches([])
+      setAllUsers([])
     }
   }
 
   useEffect(() => { load() }, [selectedBatch, sortBy, sortOrder])
 
-  // Load users when batch is selected in form
-  useEffect(() => {
-    async function loadUsers() {
-      if (!form.batch_id) {
-        setUsers([])
-        return
-      }
-      
-      try {
-        const { data } = await api.get('/profiles', { 
-          params: { batch_id: form.batch_id, role: 'INTERN', limit: 500 } 
-        })
-        setUsers(data || [])
-      } catch (err) {
-        console.error('Failed to load users:', err)
-        setUsers([])
-      }
-    }
-    loadUsers()
-  }, [form.batch_id])
+  // No longer need to load users based on batch selection
+  // Users are loaded once with all data
 
   async function createTask(event) {
     event.preventDefault()
@@ -79,7 +64,6 @@ export default function WeeklyPlans() {
       
       await api.post('/tasks', payload)
       setForm(EMPTY_FORM)
-      setUsers([])
       setSuccess('Task created successfully!')
       setTimeout(() => setSuccess(''), 3000)
       load()
@@ -183,7 +167,7 @@ export default function WeeklyPlans() {
           <select 
             className="input" 
             value={form.batch_id} 
-            onChange={(e) => setForm({ ...form, batch_id: e.target.value, assigned_to: '' })} 
+            onChange={(e) => setForm({ ...form, batch_id: e.target.value })} 
             required
           >
             <option value="">Select batch *</option>
@@ -193,10 +177,13 @@ export default function WeeklyPlans() {
             className="input" 
             value={form.assigned_to} 
             onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
-            disabled={!form.batch_id}
           >
             <option value="">All batch members</option>
-            {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+            {allUsers.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name} ({user.role})
+              </option>
+            ))}
           </select>
           <input 
             className="input" 
