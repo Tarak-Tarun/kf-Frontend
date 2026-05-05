@@ -48,9 +48,9 @@ export default function InternManagement() {
         api.get('/profiles', { params }),
       ])
       
-      console.log('Batches fetched:', batchList.data)
-      console.log('Profiles fetched:', profiles.data)
-      console.log('Current user:', user)
+      console.log('📚 Batches fetched:', batchList.data)
+      console.log('👥 Profiles fetched:', profiles.data)
+      console.log('🔑 Current user:', user)
       
       setBatches(batchList.data || [])
       
@@ -58,8 +58,8 @@ export default function InternManagement() {
       const allowedBatchIds = new Set(batchList.data.map((batch) => batch.id))
       const filteredInterns = profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id))
       
-      console.log('Allowed batch IDs:', Array.from(allowedBatchIds))
-      console.log('Filtered interns:', filteredInterns)
+      console.log('✅ Allowed batch IDs:', Array.from(allowedBatchIds))
+      console.log('✅ Filtered interns:', filteredInterns)
       
       setInterns(filteredInterns)
       setError('')
@@ -290,7 +290,19 @@ export default function InternManagement() {
   const batchMap = useMemo(() => Object.fromEntries(batches.map((batch) => [batch.id, batch])), [batches])
 
   function batchName(batchId) {
-    return batchMap[batchId]?.name || 'Unassigned'
+    if (!batchId) {
+      console.log('⚠️ Intern has no batch_id assigned')
+      return 'Unassigned'
+    }
+    
+    const batchName = batchMap[batchId]?.name
+    
+    if (!batchName) {
+      console.warn('⚠️ Batch not found for batch_id:', batchId, 'Available batches:', batches)
+      return 'Unassigned'
+    }
+    
+    return batchName
   }
 
   function clearFilters() {

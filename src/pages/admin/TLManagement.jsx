@@ -17,6 +17,7 @@ export default function TLManagement() {
   async function load() {
     try {
       const { data } = await api.get('/profiles', { params: { role: 'TECHNICAL_LEAD', limit: 500 } })
+      console.log('👥 Tech Leads API Response:', data)
       setTls(data)
       setError('')
     } catch (err) {
@@ -27,6 +28,7 @@ export default function TLManagement() {
   async function loadBatches() {
     try {
       const { data } = await api.get('/batches', { params: { limit: 500 } })
+      console.log('📚 Batches API Response:', data)
       setBatches(data)
     } catch (err) {
       console.error('Failed to load batches:', err)
@@ -234,7 +236,19 @@ export default function TLManagement() {
   const activeTLs = tls.filter(tl => tl.is_active)
 
   function batchName(batchId) {
-    return batches.find((batch) => batch.id === batchId)?.name || 'Unassigned'
+    if (!batchId) {
+      console.log('⚠️ Tech Lead has no batch_id assigned')
+      return 'Unassigned'
+    }
+    
+    const batch = batches.find((batch) => batch.id === batchId)
+    
+    if (!batch) {
+      console.warn('⚠️ Batch not found for batch_id:', batchId, 'Available batches:', batches)
+      return 'Unassigned'
+    }
+    
+    return batch.name
   }
 
   return (
@@ -356,7 +370,13 @@ export default function TLManagement() {
                       <option value="">Unassigned</option>
                       {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
                     </select>
-                  ) : batchName(item.batch_id)}
+                  ) : (
+                    <>
+                      {batchName(item.batch_id)}
+                      {/* Debug info */}
+                      {!item.batch_id && <span className="text-xs text-slate-400 ml-2">(No batch_id)</span>}
+                    </>
+                  )}
                 </td>
                 <td className="td">
                   {editingId === item.id ? (

@@ -43,6 +43,10 @@ export default function AttendanceAdmin() {
         api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
       ])
       
+      console.log('📊 Attendance API Response:', attendanceList.data)
+      console.log('👥 Interns API Response:', internList.data)
+      console.log('📚 Batches API Response:', batchList.data)
+      
       setAttendance(attendanceList.data || [])
       setBatches(batchList.data || [])
       setInterns(internList.data || [])
@@ -86,6 +90,12 @@ export default function AttendanceAdmin() {
 
   function getAttendanceForIntern(internId) {
     return attendance.find(a => a.user_id === internId && a.date === dateFilter)
+  }
+
+  function getBatchName(batchId) {
+    if (!batchId) return 'Unassigned'
+    const batch = batches.find(b => b.id === batchId)
+    return batch?.name || 'Unassigned'
   }
 
   useEffect(() => {
@@ -226,10 +236,20 @@ export default function AttendanceAdmin() {
                     const key = `${intern.id}-${dateFilter}`
                     const isMarking = markingAttendance[key]
                     
+                    // Debug log
+                    if (!intern.batch_id) {
+                      console.warn('⚠️ Intern with missing batch_id:', {
+                        id: intern.id,
+                        name: intern.name,
+                        batch_id: intern.batch_id,
+                        full_record: intern
+                      })
+                    }
+                    
                     return (
                       <tr key={intern.id}>
                         <td className="td font-medium">{intern.name || 'Unknown'}</td>
-                        <td className="td">{intern.batch_name || 'Unassigned'}</td>
+                        <td className="td">{getBatchName(intern.batch_id)}</td>
                         <td className="td">
                           {currentStatus ? (
                             <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(currentStatus)}`}>
@@ -315,19 +335,35 @@ export default function AttendanceAdmin() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {attendance.map((record) => (
-                <tr key={record.id}>
-                  <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
-                  <td className="td">{record.batch_name || 'Unassigned'}</td>
-                  <td className="td">{record.date || '—'}</td>
-                  <td className="td">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
-                      {record.status || 'Unknown'}
-                    </span>
-                  </td>
-                  {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
-                </tr>
-              ))}
+              {attendance.map((record) => {
+                // Debug log for attendance records
+                console.log('Attendance row:', record)
+                
+                if (!record.batch_name || record.batch_name === 'Unassigned') {
+                  console.warn('⚠️ Attendance record with missing/invalid batch_name:', {
+                    id: record.id,
+                    intern_name: record.intern_name,
+                    batch_name: record.batch_name,
+                    user_id: record.user_id,
+                    date: record.date,
+                    full_record: record
+                  })
+                }
+                
+                return (
+                  <tr key={record.id}>
+                    <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
+                    <td className="td">{record.batch_name ?? 'Unassigned'}</td>
+                    <td className="td">{record.date || '—'}</td>
+                    <td className="td">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
+                        {record.status || 'Unknown'}
+                      </span>
+                    </td>
+                    {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
+                  </tr>
+                )
+              })}
               {attendance.length === 0 && (
                 <tr>
                   <td className="td text-slate-500 text-center" colSpan={isAdmin ? 5 : 4}>
