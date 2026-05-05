@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
-const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_id: '' }
+const EMPTY_FORM = { name: '', email: '', tech_stack: '', batch_name: '' }
 
 export default function InternManagement() {
   const { user } = useAuth()
@@ -13,7 +13,12 @@ export default function InternManagement() {
   const [editingId, setEditingId] = useState(null)
   const [editingForm, setEditingForm] = useState(EMPTY_FORM)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
   const [loading, setLoading] = useState(false)
+  
+  // CSV upload
+  const [csvFile, setCsvFile] = useState(null)
+  const [uploadLoading, setUploadLoading] = useState(false)
 
   // Filter states
   const [nameFilter, setNameFilter] = useState('')
@@ -81,14 +86,23 @@ export default function InternManagement() {
 
   async function createProfile(event) {
     event.preventDefault()
+    
+    // Validate batch name
+    if (!form.batch_name || !form.batch_name.trim()) {
+      setError('Batch name is required.')
+      return
+    }
+    
     try {
       await api.post('/profiles', {
         ...form,
         role: 'INTERN',
-        batch_id: form.batch_id || null,
+        batch_name: form.batch_name.trim(),
       })
       setForm(EMPTY_FORM)
       setError('')
+      setSuccess('Intern profile created successfully!')
+      setTimeout(() => setSuccess(''), 3000)
       load()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to create intern profile.')
@@ -129,6 +143,73 @@ export default function InternManagement() {
     }
   }
 
+  async function handleCsvUpload() {
+    if (!csvFile) {
+      setError('Please select a CSV file to upload.')
+      return
+    }
+    
+    setUploadLoading(true)
+    setError('')
+    
+    try {
+      const formData = new FormData()
+      formData.append('file', csvFile)
+      
+      console.log('Uploading CSV file:', csvFile.name)
+      
+      const response = await api.post('/profiles/upload-csv', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      const { created, skipped, errors } = response.data
+      
+      setCsvFile(null)
+      
+      // Build success message
+      let message = `CSV Upload Complete: ${created} created`
+      if (skipped > 0) message += `, ${skipped} skipped`
+      
+      // Show errors if any
+      if (errors && errors.length > 0) {
+        console.warn('CSV upload errors:', errors)
+        message += `\n\nErrors:\n${errors.join('\n')}`
+        setError(message)
+      } else {
+        setSuccess(message)
+        setTimeout(() => setSuccess(''), 5000)
+      }
+      
+      // Refresh data
+      await load()
+      
+      console.log('CSV upload successful:', response.data)
+    } catch (err) {
+      console.error('Failed to upload CSV:', err)
+      if (err.response?.status === 403) {
+        setError('Access denied: You can only upload interns for your assigned batches.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to upload CSV file.')
+      }
+    } finally {
+      setUploadLoading(false)
+    }
+  }
+
+  function handleFileChange(event) {
+    const file = event.target.files?.[0]
+    if (file) {
+      if (!file.name.endsWith('.csv')) {
+        setError('Please select a valid CSV file.')
+        return
+      }
+      setCsvFile(file)
+      setError('')
+    }
+  }
+
   function batchName(batchId) {
     return batches.find((batch) => batch.id === batchId)?.name || 'Unassigned'
   }
@@ -166,19 +247,20 @@ export default function InternManagement() {
         <p className="text-sm text-slate-500 mt-2">Manage intern profiles and assign them to batches.</p>
       </div>
 
-      {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
+      {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700" style={{ whiteSpace: 'pre-line' }}>{error}</div>}
+      {success && <div className="card border border-green-200 bg-green-50 text-green-700" style={{ whiteSpace: 'pre-line' }}>{success}</div>}
 
       <form onSubmit={createProfile} className="card grid md:grid-cols-5 gap-4">
         <input 
           className="input" 
-          placeholder="Name" 
+          placeholder="Name *" 
           value={form.name} 
           onChange={(e) => { setForm({ ...form, name: e.target.value }); setError(''); }} 
           required 
         />
         <input 
           className="input" 
-          placeholder="Email" 
+          placeholder="Email *" 
           type="email" 
           value={form.email} 
           onChange={(e) => { setForm({ ...form, email: e.target.value }); setError(''); }} 
@@ -190,16 +272,72 @@ export default function InternManagement() {
           value={form.tech_stack} 
           onChange={(e) => { setForm({ ...form, tech_stack: e.target.value }); setError(''); }} 
         />
-        <select 
+        <input 
           className="input" 
-          value={form.batch_id} 
-          onChange={(e) => { setForm({ ...form, batch_id: e.target.value }); setError(''); }}
-        >
-          <option value="">No batch</option>
-          {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
-        </select>
+          placeholder="Batch Name *" 
+          value={form.batch_name} 
+          onChange={(e) => { setForm({ ...form, batch_name: e.target.value }); setError(''); }}
+          required
+        />
         <button className="btn-primary" type="submit">Create Intern</button>
       </form>
+
+      {/* CSV Upload Section */}
+      <div className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Bulk Upload (CSV)</h2>
+          <p className="text-sm text-slate-500 mt-1">Upload a CSV file to create multiple interns at once</p>
+        </div>
+        
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <p className="text-xs font-semibold text-slate-700 mb-2">Required CSV Format:</p>
+          <code className="text-xs text-slate-600 bg-white px-2 py-1 rounded border border-slate-200 block">
+            name,email,tech_stack,batch_name
+          </code>
+          <p className="text-xs text-slate-500 mt-2">
+            <span className="font-semibold text-slate-700">Example:</span> John Doe,john@example.com,Full Stack,KF-Cohort-5
+          </p>
+          <div className="mt-3 pt-3 border-t border-slate-300">
+            <p className="text-xs font-semibold text-rose-700 mb-1">⚠️ Important:</p>
+            <ul className="text-xs text-slate-600 space-y-1 ml-4 list-disc">
+              <li><span className="font-semibold">name</span> and <span className="font-semibold">email</span> are required</li>
+              <li><span className="font-semibold">batch_name</span> is required</li>
+              <li><span className="font-semibold">tech_stack</span> is optional</li>
+              <li>First row must be the header row</li>
+            </ul>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex-1">
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleFileChange}
+              className="block w-full text-sm text-slate-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-lg file:border-0
+                file:text-sm file:font-semibold
+                file:bg-brand-50 file:text-brand-700
+                hover:file:bg-brand-100
+                cursor-pointer"
+            />
+          </div>
+          <button
+            onClick={handleCsvUpload}
+            disabled={!csvFile || uploadLoading}
+            className="px-6 py-2 text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+          >
+            {uploadLoading ? 'Uploading...' : 'Upload CSV'}
+          </button>
+        </div>
+        
+        {csvFile && (
+          <div className="text-sm text-slate-600">
+            Selected file: <span className="font-medium">{csvFile.name}</span>
+          </div>
+        )}
+      </div>
 
       {/* Filter Section */}
       <div className="card space-y-4">
