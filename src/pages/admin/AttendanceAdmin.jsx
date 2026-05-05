@@ -68,12 +68,18 @@ export default function AttendanceAdmin() {
     setError('')
     setSuccessMessage('')
     
+    const payload = {
+      user_id: internId,
+      day: dateFilter,  // ✅ Changed from "date" to "day"
+      status: status.toUpperCase(),  // ✅ Convert to uppercase (PRESENT, ABSENT, LATE)
+    }
+    
+    console.log('📤 Marking attendance with payload:', payload)
+    
     try {
-      await api.post('/attendance', {
-        user_id: internId,
-        date: dateFilter,
-        status: status,
-      })
+      const response = await api.post('/attendance', payload)
+      
+      console.log('✅ Attendance marked successfully:', response.data)
       
       setSuccessMessage(`Attendance marked as ${status}`)
       setTimeout(() => setSuccessMessage(''), 3000)
@@ -81,7 +87,8 @@ export default function AttendanceAdmin() {
       // Reload attendance data
       await load()
     } catch (err) {
-      console.error('Failed to mark attendance:', err)
+      console.error('❌ Failed to mark attendance:', err)
+      console.error('Error response:', err.response?.data)
       setError(err.response?.data?.detail || 'Failed to mark attendance.')
     } finally {
       setMarkingAttendance(prev => ({ ...prev, [key]: false }))
@@ -89,12 +96,20 @@ export default function AttendanceAdmin() {
   }
 
   function getAttendanceForIntern(internId) {
-    return attendance.find(a => a.user_id === internId && a.date === dateFilter)
+    if (!attendance || !Array.isArray(attendance)) {
+      console.warn('⚠️ Attendance data is not an array:', attendance)
+      return null
+    }
+    return attendance.find(a => a?.user_id === internId && a?.date === dateFilter)
   }
 
   function getBatchName(batchId) {
     if (!batchId) return 'Unassigned'
-    const batch = batches.find(b => b.id === batchId)
+    if (!batches || !Array.isArray(batches)) {
+      console.warn('⚠️ Batches data is not an array:', batches)
+      return 'Unassigned'
+    }
+    const batch = batches.find(b => b?.id === batchId)
     return batch?.name || 'Unassigned'
   }
 
@@ -226,11 +241,17 @@ export default function AttendanceAdmin() {
               <tbody className="divide-y divide-slate-100">
                 {interns
                   .filter(intern => {
+                    if (!intern) return false
                     if (searchQuery && !intern.name?.toLowerCase().includes(searchQuery.toLowerCase())) return false
                     if (batchFilter && intern.batch_id !== parseInt(batchFilter)) return false
                     return true
                   })
                   .map((intern) => {
+                    if (!intern?.id) {
+                      console.warn('⚠️ Invalid intern object:', intern)
+                      return null
+                    }
+                    
                     const attendanceRecord = getAttendanceForIntern(intern.id)
                     const currentStatus = attendanceRecord?.status
                     const key = `${intern.id}-${dateFilter}`
@@ -298,8 +319,9 @@ export default function AttendanceAdmin() {
                         </td>
                       </tr>
                     )
-                  })}
-                {interns.length === 0 && (
+                  })
+                  .filter(Boolean)}
+                {(!interns || interns.length === 0) && (
                   <tr>
                     <td className="td text-slate-500 text-center" colSpan="4">
                       No interns found.
@@ -335,7 +357,12 @@ export default function AttendanceAdmin() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {attendance.map((record) => {
+              {attendance && Array.isArray(attendance) && attendance.map((record) => {
+                if (!record) {
+                  console.warn('⚠️ Invalid attendance record:', record)
+                  return null
+                }
+                
                 // Debug log for attendance records
                 console.log('Attendance row:', record)
                 
@@ -351,20 +378,20 @@ export default function AttendanceAdmin() {
                 }
                 
                 return (
-                  <tr key={record.id}>
-                    <td className="td font-medium">{record.intern_name || 'Unknown'}</td>
+                  <tr key={record.id || `${record.user_id}-${record.date}`}>
+                    <td className="td font-medium">{record.intern_name ?? 'Unknown'}</td>
                     <td className="td">{record.batch_name ?? 'Unassigned'}</td>
-                    <td className="td">{record.date || '—'}</td>
+                    <td className="td">{record.date ?? '—'}</td>
                     <td className="td">
                       <span className={`px-2 py-1 text-xs font-semibold rounded-full border ${getStatusBadge(record.status)}`}>
-                        {record.status || 'Unknown'}
+                        {record.status ?? 'Unknown'}
                       </span>
                     </td>
-                    {isAdmin && <td className="td text-sm text-slate-600">{record.notes || '—'}</td>}
+                    {isAdmin && <td className="td text-sm text-slate-600">{record.notes ?? '—'}</td>}
                   </tr>
                 )
-              })}
-              {attendance.length === 0 && (
+              }).filter(Boolean)}
+              {(!attendance || !Array.isArray(attendance) || attendance.length === 0) && (
                 <tr>
                   <td className="td text-slate-500 text-center" colSpan={isAdmin ? 5 : 4}>
                     {hasActiveFilters ? 'No attendance records found matching your filters.' : 'No attendance records found.'}
