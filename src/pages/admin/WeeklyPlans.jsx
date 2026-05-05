@@ -117,35 +117,7 @@ export default function WeeklyPlans() {
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
       {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
-      {/* Filters */}
-      <div className="card">
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Batch</label>
-            <select className="input" value={selectedBatch} onChange={(e) => setSelectedBatch(e.target.value)}>
-              <option value="">All batches</option>
-              {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Sort By</label>
-            <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              <option value="created_at">Created Date</option>
-              <option value="title">Title</option>
-              <option value="due_date">Due Date</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Order</label>
-            <select className="input" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
-              <option value="desc">Descending</option>
-              <option value="asc">Ascending</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Create Task Form */}
+      {/* 1. Create New Task Form (TOP) */}
       <form onSubmit={createTask} className="card space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Create New Task</h2>
         <div className="grid md:grid-cols-2 gap-4">
@@ -196,8 +168,38 @@ export default function WeeklyPlans() {
         <button className="btn-primary w-full" type="submit">Create Task</button>
       </form>
 
-      {/* Tasks Table */}
+      {/* 2. Filters Section (MIDDLE) */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Filter & Sort Tasks</h2>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Batch</label>
+            <select className="input" value={selectedBatch} onChange={(e) => setSelectedBatch(e.target.value)}>
+              <option value="">All batches</option>
+              {batches.map((batch) => <option key={batch.id} value={batch.id}>{batch.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sort By</label>
+            <select className="input" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="created_at">Created Date</option>
+              <option value="title">Title</option>
+              <option value="due_date">Due Date</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Order</label>
+            <select className="input" value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+              <option value="desc">Descending</option>
+              <option value="asc">Ascending</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Tasks Table (BOTTOM) */}
       <div className="card overflow-x-auto">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">All Tasks</h2>
         <table className="table">
           <thead className="bg-slate-50">
             <tr>
