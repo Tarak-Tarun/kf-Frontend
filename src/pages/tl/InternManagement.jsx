@@ -149,13 +149,19 @@ export default function InternManagement() {
   async function createIntern(event) {
     event.preventDefault()
     
+    // Validate batch name
+    if (!createForm.batch_name || !createForm.batch_name.trim()) {
+      setError('Batch name is required.')
+      return
+    }
+    
     try {
       const payload = {
         name: createForm.name,
         email: createForm.email,
         role: 'INTERN',
         tech_stack: createForm.tech_stack || null,
-        batch_name: createForm.batch_name || null,
+        batch_name: createForm.batch_name.trim(),
       }
       
       console.log('Creating intern:', payload)
@@ -188,6 +194,8 @@ export default function InternManagement() {
     }
     
     setUploadLoading(true)
+    setError('')
+    
     try {
       const formData = new FormData()
       formData.append('file', csvFile)
@@ -203,16 +211,20 @@ export default function InternManagement() {
       const { created, skipped, errors } = response.data
       
       setCsvFile(null)
-      setError('')
       
+      // Build success message
       let message = `CSV Upload Complete: ${created} created`
       if (skipped > 0) message += `, ${skipped} skipped`
-      if (errors && errors.length > 0) {
-        message += `\nErrors: ${errors.join(', ')}`
-      }
       
-      setSuccess(message)
-      setTimeout(() => setSuccess(''), 5000)
+      // Show errors if any
+      if (errors && errors.length > 0) {
+        console.warn('CSV upload errors:', errors)
+        message += `\n\nErrors:\n${errors.join('\n')}`
+        setError(message)
+      } else {
+        setSuccess(message)
+        setTimeout(() => setSuccess(''), 5000)
+      }
       
       // Refresh data
       await load()
@@ -327,9 +339,10 @@ export default function InternManagement() {
           />
           <input
             className="input"
-            placeholder="Batch Name"
+            placeholder="Batch Name *"
             value={createForm.batch_name}
             onChange={(e) => setCreateForm({ ...createForm, batch_name: e.target.value })}
+            required
           />
         </div>
         <button className="btn-primary w-full" type="submit">
@@ -345,13 +358,22 @@ export default function InternManagement() {
         </div>
         
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
-          <p className="text-xs font-semibold text-slate-700 mb-2">CSV Format:</p>
+          <p className="text-xs font-semibold text-slate-700 mb-2">Required CSV Format:</p>
           <code className="text-xs text-slate-600 bg-white px-2 py-1 rounded border border-slate-200 block">
             name,email,tech_stack,batch_name
           </code>
           <p className="text-xs text-slate-500 mt-2">
-            Example: John Doe,john@example.com,Full Stack,KF-Cohort-5
+            <span className="font-semibold text-slate-700">Example:</span> John Doe,john@example.com,Full Stack,KF-Cohort-5
           </p>
+          <div className="mt-3 pt-3 border-t border-slate-300">
+            <p className="text-xs font-semibold text-rose-700 mb-1">⚠️ Important:</p>
+            <ul className="text-xs text-slate-600 space-y-1 ml-4 list-disc">
+              <li><span className="font-semibold">name</span> and <span className="font-semibold">email</span> are required</li>
+              <li><span className="font-semibold">batch_name</span> is required</li>
+              <li><span className="font-semibold">tech_stack</span> is optional</li>
+              <li>First row must be the header row</li>
+            </ul>
+          </div>
         </div>
         
         <div className="flex items-center gap-4">
