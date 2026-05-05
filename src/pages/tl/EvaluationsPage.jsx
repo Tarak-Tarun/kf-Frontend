@@ -14,6 +14,11 @@ export default function EvaluationsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [weekFilter, setWeekFilter] = useState('')
   const [internFilter, setInternFilter] = useState('')
+  
+  // CSV download states
+  const [downloadLoading, setDownloadLoading] = useState(false)
+  const [selectedInterns, setSelectedInterns] = useState([])
+  const [selectedWeeks, setSelectedWeeks] = useState([])
 
   const internMap = useMemo(() => Object.fromEntries(interns.map((intern) => [intern.id, intern])), [interns])
 
@@ -103,6 +108,72 @@ export default function EvaluationsPage() {
       }
     }
   }
+
+  async function downloadCSV() {
+    if (filteredEvaluations.length === 0) {
+      setError('No evaluations to download. Please adjust your filters.')
+      return
+    }
+    
+    setDownloadLoading(true)
+    setError('')
+    
+    try {
+      const params = new URLSearchParams()
+      
+      // Add filters
+      if (selectedInterns.length > 0) {
+        params.append('intern_ids', selectedInterns.join(','))
+      }
+      if (selectedWeeks.length > 0) {
+        params.append('week_numbers', selectedWeeks.join(','))
+      }
+      
+      // If Tech Lead, backend will filter by their batches automatically
+      if (user?.role === 'TECHNICAL_LEAD') {
+        params.append('reviewed_by', user.id)
+      }
+      
+      console.log('Downloading CSV with params:', params.toString())
+      
+      const response = await api.get(`/evaluations/export?${params.toString()}`, {
+        responseType: 'blob'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      
+      // Generate filename with timestamp
+      const timestamp = new Date().toISOString().split('T')[0]
+      link.setAttribute('download', `evaluations_${timestamp}.csv`)
+      
+      document.body.appendChild(link)
+      link.click()
+      
+      // Cleanup
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      
+      console.log('CSV download successful')
+    } catch (err) {
+      console.error('Failed to download CSV:', err)
+      if (err.response?.status === 404) {
+        setError('No evaluations found matching your filters.')
+      } else {
+        setError(err.response?.data?.detail || 'Failed to download CSV file.')
+      }
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
+  // Get unique weeks from evaluations
+  const availableWeeks = useMemo(() => {
+    const weeks = new Set(evaluations.map(e => e.week_number))
+    return Array.from(weeks).sort((a, b) => a - b)
+  }, [evaluations])
 
   return (
     <div className="space-y-6">
@@ -223,6 +294,78 @@ export default function EvaluationsPage() {
               max="52"
             />
           </div>
+        </div>
+      </div>
+
+      {/* CSV Download Section */}
+      <div className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Export Evaluations (CSV)</h2>
+          <p className="text-sm text-slate-500 mt-1">Download filtered evaluations as a CSV file</p>
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Select Interns (Optional)</label>
+            <select 
+              multiple 
+              className="input min-h-[100px]" 
+              value={selectedInterns}
+              onChange={(e) => setSelectedInterns(Array.from(e.target.selectedOptions, option => option.value))}
+            >
+              {interns.map((intern) => (
+                <option key={intern.id} value={intern.id}>{intern.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Select Weeks (Optional)</label>
+            <select 
+              multiple 
+              className="input min-h-[100px]" 
+              value={selectedWeeks}
+              onChange={(e) => setSelectedWeeks(Array.from(e.target.selectedOptions, option => option.value))}
+            >
+              {availableWeeks.map((week) => (
+                <option key={week} value={week}>Week {week}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
+          </div>
+          
+          <div className="flex items-end">
+            <button
+              onClick={downloadCSV}
+              disabled={downloadLoading || filteredEvaluations.length === 0}
+              className="btn-primary w-full disabled:bg-slate-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {downloadLoading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Download CSV
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+        
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-xs text-blue-700">
+            <span className="font-semibold">💡 Tip:</span> Leave filters empty to download all evaluations. 
+            The CSV will include: Intern Name, Week Number, Score, Feedback, and Date.
+          </p>
         </div>
       </div>
 
