@@ -4,9 +4,7 @@ import { useAuth } from '../../hooks/AuthContext'
 import api from '../../lib/api'
 
 const EMPTY_FORM = { user_id: '', title: '', message: '' }
-const EMPTY_BROADCAST_FORM = { message: '', type: 'SYSTEM' }
-
-const NOTIFICATION_TYPES = ['SYSTEM', 'INFO', 'WARNING', 'SUCCESS', 'ERROR']
+const EMPTY_BROADCAST_FORM = { message: '' }
 
 export default function Announcements() {
   const { user } = useAuth()
@@ -75,7 +73,7 @@ export default function Announcements() {
     if (!window.confirm('Send this notification to all users?')) return
     
     try {
-      await api.post('/notifications/broadcast', broadcastForm)
+      await api.post('/notifications/broadcast', { message: broadcastForm.message })
       setBroadcastForm(EMPTY_BROADCAST_FORM)
       setSuccess('Broadcast notification sent to all users!')
       setTimeout(() => setSuccess(''), 3000)
@@ -135,8 +133,46 @@ export default function Announcements() {
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
       {success && <div className="card border border-green-200 bg-green-50 text-green-700">{success}</div>}
 
-      {/* Search and Filters */}
+      {/* 1. Send Notification Forms (TOP) */}
+      {isAdmin && (
+        <form onSubmit={sendBroadcast} className="card space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+            </svg>
+            <h2 className="text-lg font-semibold text-slate-900">Broadcast to All Users</h2>
+          </div>
+          <input
+            className="input"
+            placeholder="Broadcast message"
+            value={broadcastForm.message}
+            onChange={(e) => setBroadcastForm({ message: e.target.value })}
+            required
+          />
+          <button className="btn-primary w-full" type="submit">
+            Send to All Users
+          </button>
+        </form>
+      )}
+
+      {canManage && (
+        <form onSubmit={createNotification} className="card space-y-4">
+          <h2 className="text-lg font-semibold text-slate-900">Send Individual Notification</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <select className="input" value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })} required>
+              <option value="">Select recipient</option>
+              {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} ({profile.role})</option>)}
+            </select>
+            <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+            <input className="input" placeholder="Message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required />
+          </div>
+          <button className="btn-primary w-full" type="submit">Send Notification</button>
+        </form>
+      )}
+
+      {/* 2. Search and Filters */}
       <div className="card">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Search & Filter Notifications</h2>
         <div className="grid md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
@@ -152,9 +188,11 @@ export default function Announcements() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Type</label>
             <select className="input" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="">All Types</option>
-              {NOTIFICATION_TYPES.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
+              <option value="SYSTEM">SYSTEM</option>
+              <option value="INFO">INFO</option>
+              <option value="WARNING">WARNING</option>
+              <option value="SUCCESS">SUCCESS</option>
+              <option value="ERROR">ERROR</option>
             </select>
           </div>
           <div>
@@ -168,59 +206,9 @@ export default function Announcements() {
         </div>
       </div>
 
-      {/* Broadcast Form (Admin Only) */}
-      {isAdmin && (
-        <form onSubmit={sendBroadcast} className="card space-y-4">
-          <div className="flex items-center gap-2 mb-2">
-            <svg className="w-5 h-5 text-brand-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-            </svg>
-            <h2 className="text-lg font-semibold text-slate-900">Broadcast to All Users</h2>
-          </div>
-          <div className="grid md:grid-cols-4 gap-4">
-            <div className="md:col-span-3">
-              <input
-                className="input"
-                placeholder="Broadcast message"
-                value={broadcastForm.message}
-                onChange={(e) => setBroadcastForm({ ...broadcastForm, message: e.target.value })}
-                required
-              />
-            </div>
-            <select
-              className="input"
-              value={broadcastForm.type}
-              onChange={(e) => setBroadcastForm({ ...broadcastForm, type: e.target.value })}
-            >
-              {NOTIFICATION_TYPES.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-          <button className="btn-primary w-full" type="submit">
-            Send to All Users
-          </button>
-        </form>
-      )}
-
-      {/* Individual Notification Form */}
-      {canManage && (
-        <form onSubmit={createNotification} className="card space-y-4">
-          <h2 className="text-lg font-semibold text-slate-900">Send Individual Notification</h2>
-          <div className="grid md:grid-cols-4 gap-4">
-            <select className="input" value={form.user_id} onChange={(e) => setForm({ ...form, user_id: e.target.value })} required>
-              <option value="">Select recipient</option>
-              {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.name} ({profile.role})</option>)}
-            </select>
-            <input className="input" placeholder="Title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
-            <input className="input md:col-span-2" placeholder="Message" value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} required />
-          </div>
-          <button className="btn-primary w-full" type="submit">Send Notification</button>
-        </form>
-      )}
-
-      {/* Notifications List */}
+      {/* 3. Notifications List (BOTTOM) */}
       <div className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">All Notifications</h2>
         {notifications.length === 0 && <div className="card text-slate-500">No notifications found.</div>}
         {notifications.map((item) => (
           <div key={item.id} className={`card ${item.is_read ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-500'}`}>

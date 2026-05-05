@@ -113,44 +113,7 @@ export default function EvaluationsPage() {
 
       {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
 
-      {/* Search and Filters */}
-      <div className="card">
-        <div className="grid md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
-            <input
-              type="text"
-              className="input"
-              placeholder="Search by intern name or feedback..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Intern</label>
-            <select className="input" value={internFilter} onChange={(e) => setInternFilter(e.target.value)}>
-              <option value="">All Interns</option>
-              {interns.map((intern) => (
-                <option key={intern.id} value={intern.id}>{intern.name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Week</label>
-            <input
-              type="number"
-              className="input"
-              placeholder="Week number..."
-              value={weekFilter}
-              onChange={(e) => setWeekFilter(e.target.value)}
-              min="1"
-              max="52"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Create Evaluation Form */}
+      {/* 1. Record New Evaluation Form (TOP) */}
       <form onSubmit={createEvaluation} className="card space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Record New Evaluation</h2>
         <div className="grid md:grid-cols-3 gap-4">
@@ -225,7 +188,47 @@ export default function EvaluationsPage() {
         </button>
       </form>
 
+      {/* 2. Search and Filters */}
+      <div className="card">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Search & Filter Evaluations</h2>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by intern name or feedback..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Intern</label>
+            <select className="input" value={internFilter} onChange={(e) => setInternFilter(e.target.value)}>
+              <option value="">All Interns</option>
+              {interns.map((intern) => (
+                <option key={intern.id} value={intern.id}>{intern.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Week</label>
+            <input
+              type="number"
+              className="input"
+              placeholder="Week number..."
+              value={weekFilter}
+              onChange={(e) => setWeekFilter(e.target.value)}
+              min="1"
+              max="52"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Evaluations Table (BOTTOM) */}
       <div className="card overflow-x-auto">
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">All Evaluations</h2>
         <table className="table">
           <thead className="bg-slate-50">
             <tr>
