@@ -50,7 +50,6 @@ export default function MyScores() {
                 <div className="text-xs font-semibold text-amber-600 uppercase tracking-wide">
                   Week {e.week_number}
                 </div>
-                <div className="text-sm font-bold text-brand-700">{e.score}/5</div>
               </div>
               <p className="text-slate-800 text-sm leading-relaxed">{e.feedback || 'No written feedback provided.'}</p>
             </div>
