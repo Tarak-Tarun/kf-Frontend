@@ -5,10 +5,21 @@ import api from '../../lib/api'
 export default function MyScores() {
   const { user } = useAuth()
   const [evals, setEvals] = useState([])
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!user?.id) return
-    api.get('/evaluations', { params: { intern_id: user.id, limit: 500 } }).then((r) => setEvals(r.data))
+    
+    api.get('/evaluations', { params: { intern_id: user.id, limit: 500 } })
+      .then((r) => {
+        setEvals(r.data || [])
+        setError('')
+      })
+      .catch((err) => {
+        console.error('Failed to load evaluations:', err)
+        setError(err.response?.data?.detail || 'Failed to load your evaluations.')
+        setEvals([])
+      })
   }, [user])
 
   const withFeedback = evals.filter((e) => e.feedback)
@@ -16,6 +27,8 @@ export default function MyScores() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">My Feedback</h1>
+
+      {error && <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>}
 
       {evals.length === 0 ? (
         <div className="card text-center py-12">

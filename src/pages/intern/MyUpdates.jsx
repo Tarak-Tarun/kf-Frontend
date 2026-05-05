@@ -14,21 +14,35 @@ export default function MyUpdates() {
   const [message, setMessage] = useState('')
 
   async function load() {
-    const requests = [api.get('/submissions', { params: { user_id: user.id, limit: 500 } })]
-    if (user.batch_id) {
-      requests.unshift(api.get('/tasks', { params: { batch_id: user.batch_id, limit: 500 } }))
-    } else {
-      requests.unshift(Promise.resolve({ data: [] }))
+    if (!user?.id) return
+    
+    try {
+      const requests = [api.get('/submissions', { params: { user_id: user.id, limit: 500 } })]
+      if (user.batch_id) {
+        requests.unshift(api.get('/tasks', { params: { batch_id: user.batch_id, limit: 500 } }))
+      } else {
+        requests.unshift(Promise.resolve({ data: [] }))
+      }
+      const [taskList, submissionList] = await Promise.all(requests)
+      setTasks(taskList.data || [])
+      setSubmissions(submissionList.data || [])
+    } catch (err) {
+      console.error('Failed to load updates:', err)
+      setTasks([])
+      setSubmissions([])
+      setMessage(err.response?.data?.detail || 'Failed to load your updates.')
     }
-    const [taskList, submissionList] = await Promise.all(requests)
-    setTasks(taskList.data)
-    setSubmissions(submissionList.data)
   }
 
   useEffect(() => { if (user?.id) load() }, [user])
 
   async function submitUpdate(event) {
     event.preventDefault()
+    if (!user?.id) {
+      setMessage('User not authenticated.')
+      return
+    }
+    
     try {
       await api.post('/submissions', {
         user_id: user.id,
@@ -39,6 +53,7 @@ export default function MyUpdates() {
       setMessage('Update submitted successfully.')
       load()
     } catch (err) {
+      console.error('Failed to submit update:', err)
       setMessage(err.response?.data?.detail || 'Failed to submit update.')
     }
   }

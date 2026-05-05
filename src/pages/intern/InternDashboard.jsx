@@ -11,6 +11,8 @@ export default function InternDashboard() {
 
   useEffect(() => {
     async function load() {
+      if (!user?.id) return
+      
       try {
         setLoading(true)
         const requests = [
@@ -26,20 +28,22 @@ export default function InternDashboard() {
 
         const [tasks, submissions, evaluations, notifications] = await Promise.all(requests)
         setData({
-          tasks: tasks.data,
-          submissions: submissions.data,
-          evaluations: evaluations.data,
-          notifications: notifications.data,
+          tasks: tasks.data || [],
+          submissions: submissions.data || [],
+          evaluations: evaluations.data || [],
+          notifications: notifications.data || [],
         })
         setError('')
       } catch (err) {
+        console.error('Failed to load dashboard:', err)
         setError(err.response?.data?.detail || 'Failed to load your dashboard.')
+        setData({ tasks: [], submissions: [], evaluations: [], notifications: [] })
       } finally {
         setLoading(false)
       }
     }
 
-    if (user?.id) load()
+    load()
   }, [user])
 
   const latestEvaluation = useMemo(() => data.evaluations[0] || null, [data.evaluations])
@@ -51,7 +55,7 @@ export default function InternDashboard() {
     <div className="space-y-6">
       <section className="rounded-2xl bg-gradient-to-br from-brand-700 via-brand-800 to-slate-950 text-white p-8 shadow-2xl">
         <div className="text-xs uppercase tracking-[0.25em] text-brand-200 font-semibold">Intern</div>
-        <h1 className="text-4xl font-black mt-3">Welcome, {user.name}</h1>
+        <h1 className="text-4xl font-black mt-3">Welcome, {user?.name || 'User'}</h1>
         <p className="text-sm text-slate-200 mt-3 max-w-3xl">
           Track your assigned tasks, submitted updates, evaluation history, and unread notifications from one place.
         </p>

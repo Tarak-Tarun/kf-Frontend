@@ -11,6 +11,8 @@ export default function TLDashboard() {
 
   useEffect(() => {
     async function load() {
+      if (!user?.id) return
+      
       try {
         setLoading(true)
         // Backend now filters batches for Tech Lead automatically
@@ -21,33 +23,36 @@ export default function TLDashboard() {
           api.get('/evaluations', { params: { reviewed_by: user.id, limit: 500 } }),
         ])
 
-        const tlBatchIds = new Set(batches.data.map((batch) => batch.id))
-        const tlInterns = interns.data.filter((intern) => tlBatchIds.has(intern.batch_id))
+        const tlBatchIds = new Set((batches.data || []).map((batch) => batch.id))
+        const tlInterns = (interns.data || []).filter((intern) => tlBatchIds.has(intern.batch_id))
         const tlInternIds = new Set(tlInterns.map((intern) => intern.id))
-        const tlSubmissions = submissions.data.filter((item) => tlInternIds.has(item.user_id))
+        const tlSubmissions = (submissions.data || []).filter((item) => tlInternIds.has(item.user_id))
 
         setSummary({
-          batchCount: batches.data.length,
+          batchCount: (batches.data || []).length,
           internCount: tlInterns.length,
           submissionCount: tlSubmissions.length,
-          evaluationCount: evaluations.data.length,
-          batches: batches.data,
+          evaluationCount: (evaluations.data || []).length,
+          batches: batches.data || [],
           recentSubmissions: tlSubmissions.slice(0, 5),
-          recentEvaluations: evaluations.data.slice(0, 5),
+          recentEvaluations: (evaluations.data || []).slice(0, 5),
         })
         setError('')
       } catch (err) {
+        console.error('Failed to load TL dashboard:', err)
         setError(err.response?.data?.detail || 'Failed to load technical lead dashboard.')
+        setSummary(null)
       } finally {
         setLoading(false)
       }
     }
 
-    if (user?.id) load()
+    load()
   }, [user])
 
   if (loading) return <div className="text-slate-500">Loading dashboard...</div>
   if (error) return <div className="card border border-rose-200 bg-rose-50 text-rose-700">{error}</div>
+  if (!summary) return <div className="text-slate-500">No data available.</div>
 
   return (
     <div className="space-y-6">

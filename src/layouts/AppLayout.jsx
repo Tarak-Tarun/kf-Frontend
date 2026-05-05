@@ -44,10 +44,11 @@ export default function AppLayout() {
       const res = await api.get('/notifications', {
         params: { is_read: false, limit: 500 },
       })
-      setUnreadCount(res.data.length)
+      setUnreadCount(res.data?.length || 0)
     } catch (err) {
       // Silently fail - don't disrupt UI
       console.error('Failed to fetch unread count:', err)
+      setUnreadCount(0)
     }
   }
 

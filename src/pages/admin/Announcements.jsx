@@ -34,7 +34,7 @@ export default function Announcements() {
       
       // Build query params for notifications
       const notificationParams = { limit: 500 }
-      if (!canManage) notificationParams.user_id = user.id
+      if (!canManage && user?.id) notificationParams.user_id = user.id
       if (searchQuery) notificationParams.search = searchQuery
       if (typeFilter) notificationParams.type = typeFilter
       if (readFilter) notificationParams.is_read = readFilter === 'read'
@@ -42,11 +42,14 @@ export default function Announcements() {
       const notificationPromise = api.get('/notifications', { params: notificationParams })
 
       const [profileList, notificationList] = await Promise.all([profilePromise, notificationPromise])
-      setProfiles(profileList.data)
-      setNotifications(notificationList.data)
+      setProfiles(profileList.data || [])
+      setNotifications(notificationList.data || [])
       setError('')
     } catch (err) {
+      console.error('Failed to load notifications:', err)
       setError(err.response?.data?.detail || 'Failed to load notifications.')
+      setNotifications([])
+      setProfiles([])
     }
   }
 

@@ -13,6 +13,11 @@ export default function ProfileSettings() {
   const [loading, setLoading] = useState(false)
 
   async function handleSave() {
+    if (!user?.id) {
+      setError('User not authenticated')
+      return
+    }
+    
     setError('')
     setSuccess('')
     setFieldError('')
@@ -26,7 +31,7 @@ export default function ProfileSettings() {
     }
     
     // Check if name actually changed
-    if (name.trim() === user.name) {
+    if (name.trim() === user?.name) {
       setError('No changes detected')
       return
     }
@@ -44,6 +49,7 @@ export default function ProfileSettings() {
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000)
     } catch (err) {
+      console.error('Failed to update profile:', err)
       setError(err.response?.data?.detail || 'Failed to update profile')
     } finally {
       setLoading(false)

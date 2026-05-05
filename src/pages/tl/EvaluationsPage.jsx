@@ -15,6 +15,8 @@ export default function EvaluationsPage() {
   const internMap = useMemo(() => Object.fromEntries(interns.map((intern) => [intern.id, intern])), [interns])
 
   async function load() {
+    if (!user?.id) return
+    
     try {
       const [profiles, batches, evaluationList] = await Promise.all([
         api.get('/profiles', { params: { role: 'INTERN', limit: 500 } }),
@@ -28,22 +30,30 @@ export default function EvaluationsPage() {
       ])
 
       if (user.role === 'TECHNICAL_LEAD') {
-        const allowedBatchIds = new Set(batches.data.map((batch) => batch.id))
-        setInterns(profiles.data.filter((intern) => allowedBatchIds.has(intern.batch_id)))
+        const allowedBatchIds = new Set((batches.data || []).map((batch) => batch.id))
+        setInterns((profiles.data || []).filter((intern) => allowedBatchIds.has(intern.batch_id)))
       } else {
-        setInterns(profiles.data)
+        setInterns(profiles.data || [])
       }
-      setEvaluations(evaluationList.data)
+      setEvaluations(evaluationList.data || [])
       setError('')
     } catch (err) {
+      console.error('Failed to load evaluations:', err)
       setError(err.response?.data?.detail || 'Failed to load evaluations.')
+      setInterns([])
+      setEvaluations([])
     }
   }
 
-  useEffect(() => { if (user?.id) load() }, [user])
+  useEffect(() => { load() }, [user])
 
   async function createEvaluation(event) {
     event.preventDefault()
+    if (!user?.id) {
+      setError('User not authenticated.')
+      return
+    }
+    
     try {
       await api.post('/evaluations', {
         ...form,
@@ -52,8 +62,10 @@ export default function EvaluationsPage() {
         reviewed_by: user.id,
       })
       setForm(EMPTY_FORM)
+      setError('')
       load()
     } catch (err) {
+      console.error('Failed to create evaluation:', err)
       setError(err.response?.data?.detail || 'Failed to create evaluation.')
     }
   }
